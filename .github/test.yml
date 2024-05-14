@@ -1,0 +1,60 @@
+name: Lint and Unit Test
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    types:
+      - opened
+      - reopened
+      - synchronize
+
+jobs:
+  lint:
+    name: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+          cache: 'pip'
+      - run: pip install -U flake8
+      - name: Run python code lint
+        run: flake8 dooc
+
+  tests:
+    name: "Python ${{ matrix.py-version }} unit-tests"
+    # needs: lint
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        py-version: ['3.9', '3.10']
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.py-version }}
+          cache: 'pip'
+      - run: pip install -r test-requirements.txt -U
+      - name: Run unit-tests
+        run: pytest tests
+      - name: Coveralls Parallel
+        uses: AndreMiras/coveralls-python-action@develop
+        with:
+          flag-name: "Integration Test - ${{ matrix.py-version }}"
+          # parallel: true
+
+  report_coverage:
+    name: Report testing coverage
+    needs: tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Coveralls Finished
+        uses: AndreMiras/coveralls-python-action@develop
+        with:
+          parallel-finished: true
