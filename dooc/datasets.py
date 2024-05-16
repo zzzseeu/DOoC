@@ -7,8 +7,7 @@ class MutSmi(Base):
     """Base datasets, convert smiles and mutations to torch.Tensor.
 
     """
-    def __init__(self):
-        pass
+    pass
 
 
 class MutSmiXAttention(MutSmi):
@@ -30,7 +29,7 @@ class MutSmiXAttention(MutSmi):
         Returns:
             smiles_src, smiles_tgt, mutations_src, out
         """
-        return
+        pass
 
 
 class MutSmiFullConnection(MutSmiXAttention):

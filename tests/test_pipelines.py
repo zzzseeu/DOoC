@@ -1,15 +1,33 @@
-import torch
-import pytest
-from dooc import pipelines
+import random
+from dooc import pipelines, models
+from moltx import tokenizers as tkz
+from moltx.models import AdaMRTokenizerConfig
 
-def test_MutSmi():
-    pipeline = pipelines.MutSmi()
-    return
+ 
+# def test_MutSmiXAttention():
+#     tokenizer = tkz.MoltxTokenizer.from_pretrain(
+#         conf=AdaMRTokenizerConfig.Prediction
+#         )
+#     d_model = 768
+#     model = models.MutSmiXAttention(d_model)
+#     model.load_ckpt('/path/to/mutsmixattention.ckpt')
+#     pipeline = pipelines.MutSmiXAttention(tokenizer, model)
+#     mutation = [random.choice([1, 0]) for _ in range(3008)]
+#     smiles = "CC[N+](C)(C)Cc1ccccc1Br"
+#     predict = pipeline(mutation, smiles)
+#     assert isinstance(predict, float)
 
-def test_MutSmiXAttention():
-    pipeline = pipelines.MutSmiXAttention()
-    return pipeline([1, 0, 0, 1], "CC[N+](C)(C)Cc1ccccc1Br")
 
 def test_MutSmiFullConnection():
-    pipeline = pipelines.MutSmiFullConnection()
-    return pipeline([1, 0, 0, 1], "CC[N+](C)(C)Cc1ccccc1Br")
+    tokenizer = tkz.MoltxTokenizer.from_pretrain(
+        conf=AdaMRTokenizerConfig.Prediction
+        )
+    d_model = 768
+    model = models.MutSmiFullConnection(d_model)
+    # model.load_ckpt('/path/to/mutsmifullconnection.ckpt')
+    pipeline = pipelines.MutSmiFullConnection(tokenizer,
+                                              model)
+    mutation = [random.choice([1, 0]) for _ in range(3008)]
+    smiles = "CC[N+](C)(C)Cc1ccccc1Br"
+    predict = pipeline(mutation, smiles)
+    assert isinstance(predict, float)
