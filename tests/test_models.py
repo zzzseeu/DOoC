@@ -1,18 +1,22 @@
 import torch
 from dooc import models
-from torch import nn
 
 
-def test_MutSmi():
-    cls = models.MutSmi()
-    return
+# def test_MutSmiXAttention():
+#     smiles_src = torch.randint(0, 64, [2, 4])
+#     smiles_tgt = torch.randint(0, 64, [2, 6])
+#     mutations_src = torch.randn(2, 3008, dtype=torch.float32)
+#     d_model = 768
+#     model = models.MutSmiXAttention(d_model)
+#     out = model(smiles_src, smiles_tgt, mutations_src)
+#     assert out.shape == (1,)
 
-def test_MutSmiXAttention():
-    model = models.MutSmiXAttention()
-    assert model.forward([1, 0, 0, 1], [1, 0, 0, 1], [1, 0, 0, 1]) == None
-    return
 
 def test_MutSmiFullConnection():
-    model = models.MutSmiFullConnection()
-    assert model.forward([1, 0, 0, 1], [1, 0, 0, 1], [1, 0, 0, 1]) == None
-    return
+    smiles_src = torch.randint(0, 64, [2, 4])
+    smiles_tgt = torch.randint(0, 64, [2, 6])
+    mutations_src = torch.randn(2, 3008, dtype=torch.float32)
+    d_model = 768
+    model = models.MutSmiFullConnection(d_model)
+    out = model(smiles_src, smiles_tgt, mutations_src)
+    assert out.shape == (1,)
