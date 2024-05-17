@@ -43,7 +43,7 @@ def test_MutSmiFullConnection():
     smiles_src, smiles_tgt, mutations_src, out = ds(smiles,
                                                     mutations,
                                                     values)
-    assert smiles_src.shape == (2, 4)
-    assert smiles_tgt.shape == (2, 6)
+    assert smiles_src.shape == (2, 200)
+    assert smiles_tgt.shape == (2, 200)
     assert mutations_src.shape == (2, 3008)
     assert out.shape == (2, 1)

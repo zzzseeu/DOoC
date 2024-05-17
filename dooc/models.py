@@ -1,55 +1,100 @@
 import torch
 from torch import nn
+from dooc import nets
+from moltx.models import AdaMR
+from moltx.nets import AbsPosEncoderDecoderConfig
 
 
 class MutSmi(nn.Module):
-    """Base
+    """Base"""
 
-    """
-    def __init__(self):
-        pass
+    def __init__(
+        self,
+        gene_conf: nets.GeneGNNConfig = nets.GeneGNN.DEFAULT_CONFIG,
+        smiles_conf: AbsPosEncoderDecoderConfig = AdaMR.CONFIG_BASE,
+    ) -> None:
+        super().__init__()
+        self.gene_conf = gene_conf
+        self.smiles_conf = smiles_conf
+        self.smiles_encoder = AdaMR(smiles_conf)
 
-    def load_ckpt(self, ckpt_file: str) -> None:
+        self.gene_encoder = nets.GeneGNN(gene_conf)
+
+    def load_ckpt(self, *ckpt_files: str) -> None:
         """load check point model.
 
         Args:
-            ckpt_file (str): check point file path.
+            ckpt_files (str): check point file paths.
         """
-        return
+        self.load_state_dict(
+            torch.load(ckpt_files[0], map_location=torch.device("cpu")), strict=False
+        )
 
-    def load_pretrained_ckpt(self,
-                             drugcell_ckpt: str,
-                             moltx_ckpt: str) -> None:
-        """load drugcell checkpoint and moltx checkpoint.
+    def load_pretrained_ckpt(self, drugcell_ckpt: str, moltx_ckpt: str, freeze_drugcell: bool = False, freeze_moltx: bool = False) -> None:
+        self.gene_encoder.load_ckpt(drugcell_ckpt)
+        self.smiles_encoder.load_ckpt(moltx_ckpt)
+        if freeze_moltx:
+            self.smiles_encoder.requires_grad_(False)
+        if freeze_drugcell:
+            self.gene_encoder.requires_grad_(False)
 
-        Args:
-            drugcell_ckpt (str): ckpt file path.
-            moltx_ckpt (str): ckpt file path.
-        """
-        return
+    def forward(
+        self, smiles_src: torch.Tensor, smiles_tgt: torch.Tensor, gene_src: torch.Tensor
+    ) -> torch.Tensor:
+        raise NotImplementedError()
 
 
 class MutSmiXAttention(MutSmi):
-    """Regression model using transformer cross attention.
-    """
-    def __init__(self):
-        pass
+    """Regression model using transformer cross attention."""
 
-    def forward(self,
-                smiles_src: torch.Tensor,
-                smiles_tgt: torch.Tensor,
-                mutations_src: torch.Tensor) -> torch.Tensor:
+    def __init__(
+        self,
+        d_model: int,
+        gene_conf: nets.GeneGNNConfig = nets.GeneGNN.DEFAULT_CONFIG,
+        smiles_conf: AbsPosEncoderDecoderConfig = AdaMR.CONFIG_BASE,
+    ) -> None:
+        super().__init__(gene_conf, smiles_conf)
+        self.d_model = d_model
+
+    def forward(
+        self, smiles_src: torch.Tensor, smiles_tgt: torch.Tensor, gene_src: torch.Tensor
+    ) -> torch.Tensor:
         pass
 
 
 class MutSmiFullConnection(MutSmi):
-    """Regression model using fully connection.
-    """
-    def __init__(self):
-        pass
+    """Regression model using fully connection."""
 
-    def forward(self,
-                smiles_src: torch.Tensor,
-                smiles_tgt: torch.Tensor,
-                mutations_src: torch.Tensor) -> torch.Tensor:
-        pass
+    def __init__(
+        self,
+        d_model: int,
+        gene_conf: nets.GeneGNNConfig = nets.GeneGNN.DEFAULT_CONFIG,
+        smiles_conf: AbsPosEncoderDecoderConfig = AdaMR.CONFIG_BASE,
+    ) -> None:
+        super().__init__(gene_conf, smiles_conf)
+        self.d_model = d_model
+
+        d_hidden = d_model // 2
+        self.gene_fc = nn.Linear(self.gene_conf.num_hiddens_genotype, self.d_model)
+        self.reg = nn.Sequential(
+            nn.Linear(self.d_model, d_hidden),
+            nn.ReLU(),
+            nn.Dropout(0.1),
+            nn.Linear(d_hidden, 1),
+        )
+
+    def forward(
+        self, smiles_src: torch.Tensor, smiles_tgt: torch.Tensor, gene_src: torch.Tensor
+    ) -> torch.Tensor:
+        is_batched = smiles_src.dim() == 2
+
+        smiles_out = self.smiles_encoder.forward_feature(smiles_src, smiles_tgt)
+        gene_out = self.gene_encoder(gene_src).unsqueeze(1)
+
+        feat = None
+        if is_batched:
+            feat = smiles_out + self.gene_fc(gene_out)[:, 0]
+        else:
+            feat = smiles_out[0] + self.gene_fc(gene_out)[0]
+
+        return self.reg(feat)
