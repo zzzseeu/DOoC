@@ -1,2 +1,3 @@
-moltx~=1.0.0
-networkx
+moltx~=1.0.2
+networkx~=3.1
+scikit-learn~=1.3.0

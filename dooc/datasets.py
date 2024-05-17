@@ -20,7 +20,7 @@ class MutSmi:
         self,
         smiles: typing.Sequence[str],
         values: typing.Sequence[float],
-        seq_len: int = 256,
+        seq_len: int = 200,
     ) -> torch.Tensor:
         src, tgt, out = self.smi_ds(smiles, values, seq_len)
         return src.to(self.device), tgt.to(self.device), out.to(self.device)
@@ -33,7 +33,7 @@ class MutSmi:
         smiles: typing.Sequence[str],
         genes: typing.Sequence[list],
         values: typing.Sequence[float],
-        seq_len: int = 256,
+        seq_len: int = 200,
     ) -> typing.Tuple[torch.Tensor]:
         smi_src, smi_tgt, out = self.gen_smi_token(smiles, values, seq_len)
         gene_src = self.gen_gene_token(genes)

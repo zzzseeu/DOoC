@@ -1,3 +1,4 @@
+import os
 import torch
 from torch import nn
 from dataclasses import dataclass
@@ -8,11 +9,11 @@ from dooc.utils import load_gene_mapping, load_ontology
 class GeneGNNConfig:
     gene_dim: int
     drug_dim: int
-    num_hiddens_genotype: int = 6
-    num_hiddens_drug: list = [100, 50, 6]
-    num_hiddens_final: int = 6
-    gene2ind_path: str = "data/gene2ind.txt"
-    ont_path: str = "data/drugcell_ont.txt"
+    num_hiddens_genotype: int
+    num_hiddens_drug: list
+    num_hiddens_final: int
+    gene2ind_path: str
+    ont_path: str
 
 
 class GeneGNN(nn.Module):
@@ -28,8 +29,8 @@ class GeneGNN(nn.Module):
         num_hiddens_genotype=6,
         num_hiddens_drug=[100, 50, 6],
         num_hiddens_final=6,
-        gene2ind_path="data/gene2ind.txt",
-        ont_path="data/drugcell_ont.txt",
+        gene2ind_path=os.path.join(os.path.dirname(__file__), "data", "gene2ind.txt"),
+        ont_path=os.path.join(os.path.dirname(__file__), "data", "drugcell_ont.txt"),
     )
 
     def __init__(self, conf: GeneGNNConfig = DEFAULT_CONFIG) -> None:
@@ -94,15 +95,15 @@ class GeneGNN(nn.Module):
         self.term_layer_list = []  # term_layer_list stores the built neural network
         self.term_neighbor_map = {}
         # term_neighbor_map records all children of each term
-        for term in self.dG.nodes():
+        for term in self.dg.nodes():
             self.term_neighbor_map[term] = []
-            for child in self.dG.neighbors(term):
+            for child in self.dg.neighbors(term):
                 self.term_neighbor_map[term].append(child)
 
         while True:
-            leaves = [n for n in self.dG.nodes() if self.dG.out_degree(n) == 0]
-            # leaves = [n for n,d in self.dG.out_degree().items() if d==0]
-            # leaves = [n for n,d in self.dG.out_degree() if d==0]
+            leaves = [n for n in self.dg.nodes() if self.dg.out_degree(n) == 0]
+            # leaves = [n for n,d in self.dg.out_degree().items() if d==0]
+            # leaves = [n for n,d in self.dg.out_degree() if d==0]
 
             if len(leaves) == 0:
                 break
@@ -130,7 +131,7 @@ class GeneGNN(nn.Module):
                 self.add_module(term + "_aux_linear_layer1", nn.Linear(term_hidden, 1))
                 self.add_module(term + "_aux_linear_layer2", nn.Linear(1, 1))
 
-        self.dG.remove_nodes_from(leaves)
+            self.dg.remove_nodes_from(leaves)
 
     def _construct_final_layer(self):
         """
@@ -158,14 +159,10 @@ class GeneGNN(nn.Module):
         """
         self.term_dim_map = {}
         for term, term_size in self.term_size_map.items():
-            num_output = self.num_hiddens_genoty
+            num_output = self.conf.num_hiddens_genotype
 
             # log the number of hidden variables per each term
             num_output = int(num_output)
-            print(
-                "term\t%s\tterm_size\t%d\tnum_hiddens\t%d"
-                % (term, term_size, num_output)
-            )
             self.term_dim_map[term] = num_output
 
     def _get_params(self):
@@ -186,7 +183,7 @@ class GeneGNN(nn.Module):
         """
 
         gene_input = x.narrow(1, 0, self.conf.gene_dim)
-        # drug_input = x.narrow(1, self.gene_dim, self.drug_dim)
+        # drug_input = x.narrow(1, self.conf.gene_dim, self.conf.drug_dim)
 
         # define forward function for genotype dcell #############################################
         term_gene_out_map = {}

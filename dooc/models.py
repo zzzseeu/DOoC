@@ -30,7 +30,7 @@ class MutSmi(nn.Module):
             torch.load(ckpt_files[0], map_location=torch.device("cpu")), strict=False
         )
 
-    def load_pretrained_ckpt(self, drugcell_ckpt: str, moltx_ckpt: str, freeze_moltx: bool = False, freeze_drugcell: bool = False) -> None:
+    def load_pretrained_ckpt(self, drugcell_ckpt: str, moltx_ckpt: str, freeze_drugcell: bool = False, freeze_moltx: bool = False) -> None:
         self.gene_encoder.load_ckpt(drugcell_ckpt)
         self.smiles_encoder.load_ckpt(moltx_ckpt)
         if freeze_moltx:

@@ -24,7 +24,7 @@ class MutSmi:
         self, gene: typing.Sequence[int], smiles: str
     ) -> typing.Tuple[torch.Tensor]:
         smi_src = self.gen_smi_token(smiles)
-        smi_tgt = self.gen_smi_token(self.smi_tokenizer.BOS + smiles + self.tokenizer.EOS)
+        smi_tgt = self.gen_smi_token(self.smi_tokenizer.BOS + smiles + self.smi_tokenizer.EOS)
         gene_src = self.gen_gene_token(gene)
         return smi_src, smi_tgt, gene_src
 
@@ -64,4 +64,4 @@ class MutSmiFullConnection(MutSmi):
     def __call__(self, gene: typing.Sequence[int], smiles: str) -> float:
         smi_src, smi_tgt, gene_src = self._model_args(gene, smiles)
         pred = self.model(smi_src, smi_tgt, gene_src)
-        return pred
+        return pred.item()

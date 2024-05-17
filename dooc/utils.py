@@ -31,6 +31,9 @@ def load_ontology(file_name: str, gene2id_mapping: dict) -> typing.Sequence:
 
         if line[1] not in gene2id_mapping:
             continue
+        if line[0] not in term_direct_gene_map:
+            term_direct_gene_map[line[0]] = set()
+
         term_direct_gene_map[line[0]].add(gene2id_mapping[line[1]])
         gene_set.add(line[1])
     file_handle.close()
@@ -39,12 +42,15 @@ def load_ontology(file_name: str, gene2id_mapping: dict) -> typing.Sequence:
 
     leaves = []
     for term in dg.nodes():
-        term_gene_set = term_direct_gene_map[term]
+        term_gene_set = set()
+        if term in term_direct_gene_map:
+            term_gene_set = term_direct_gene_map[term]
 
         deslist = nxadag.descendants(dg, term)
 
         for child in deslist:
-            term_gene_set = term_gene_set | term_direct_gene_map[child]
+            if child in term_direct_gene_map:
+                term_gene_set = term_gene_set | term_direct_gene_map[child]
 
         if len(term_gene_set) == 0:
             raise ValueError(f"There is empty terms, please delete term: {term}")
