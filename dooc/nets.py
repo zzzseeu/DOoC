@@ -181,7 +181,8 @@ class GeneGNN(nn.Module):
         """
         removed drug layer
         """
-
+        x_dim = x.dim()
+        x = x.unsqueeze(0) if x_dim == 1 else x
         gene_input = x.narrow(1, 0, self.conf.gene_dim)
         # drug_input = x.narrow(1, self.conf.gene_dim, self.conf.drug_dim)
 
@@ -223,4 +224,5 @@ class GeneGNN(nn.Module):
                     aux_layer1_out
                 )
 
-        return term_nn_out_map[self.dg_root]
+        out = term_nn_out_map[self.dg_root]
+        return out

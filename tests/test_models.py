@@ -9,8 +9,7 @@ def test_MutSmiXAttention():
     mutations = [[random.choice([0, 1]) for _ in range(3008)],
                 [random.choice([0, 1]) for _ in range(3008)]]
     mutations_src = torch.tensor(mutations, dtype=torch.float).to("cpu")
-    d_model = 768
-    model = models.MutSmiXAttention(d_model)
+    model = models.MutSmiXAttention()
     out = model(smiles_src, smiles_tgt, mutations_src)
     assert out.shape == (2, 1)
 
@@ -21,7 +20,6 @@ def test_MutSmiFullConnection():
     mutations = [[random.choice([0, 1]) for _ in range(3008)],
                 [random.choice([0, 1]) for _ in range(3008)]]
     mutations_src = torch.tensor(mutations, dtype=torch.float).to("cpu")
-    d_model = 768
-    model = models.MutSmiFullConnection(d_model)
+    model = models.MutSmiFullConnection()
     out = model(smiles_src, smiles_tgt, mutations_src)
     assert out.shape == (2, 1)
