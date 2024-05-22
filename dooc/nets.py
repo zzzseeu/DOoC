@@ -38,6 +38,7 @@ class GeneGNN(nn.Module):
     def __init__(self, conf: GeneGNNConfig = DEFAULT_CONFIG) -> None:
         super().__init__()
         self.conf = conf
+        d_model = self.conf.d_model
 
         dg, dg_root, term_size_map, term_direct_gene_map = self._get_params()
         self.dg, self.dg_root = dg, dg_root
@@ -51,8 +52,8 @@ class GeneGNN(nn.Module):
         self._construct_nn_graph()
         self._construct_nn_drug()
         self._construct_final_layer()
-        self.final_fc_layer = nn.Linear(self.conf.num_hiddens_genotype,
-                                        self.conf.d_model)
+        self.out_fc = nn.Linear(self.conf.num_hiddens_genotype,
+                                d_model)
 
     def _contruct_direct_gene_layer(self):
         """
@@ -229,5 +230,5 @@ class GeneGNN(nn.Module):
                 )
 
         out = term_nn_out_map[self.dg_root]
-        out = self.final_fc_layer(out)
+        out = self.out_fc(out)
         return out

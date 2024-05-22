@@ -55,13 +55,12 @@ class MutSmiXAttention(MutSmi):
         smiles_conf: AbsPosEncoderDecoderConfig = AdaMR.CONFIG_BASE,
     ) -> None:
         super().__init__(gene_conf, smiles_conf)
-        d_hidden = self.smiles_conf.d_model // 2
-        decoder_layer = nn.TransformerDecoderLayer(self.smiles_conf.d_model,
-                                                   nhead)
-        self.smixmut_decoder = nn.TransformerDecoder(decoder_layer,
-                                                     num_layers)
+        d_model = self.smiles_conf.d_model
+        d_hidden = d_model // 2
+        layer = nn.TransformerDecoderLayer(d_model, nhead)
+        self.cross_att = nn.TransformerDecoder(layer, num_layers)
         self.reg = nn.Sequential(
-            nn.Linear(self.smiles_conf.d_model, d_hidden),
+            nn.Linear(d_model, d_hidden),
             nn.ReLU(),
             nn.Dropout(0.1),
             nn.Linear(d_hidden, 1),
@@ -73,8 +72,7 @@ class MutSmiXAttention(MutSmi):
         assert smiles_src.dim() == 2 and smiles_tgt.dim() == 2
         smiles_out = self.smiles_encoder.forward_feature(smiles_src, smiles_tgt)
         gene_out = self.gene_encoder(gene_src)
-        feat = None
-        feat = self.smixmut_decoder(smiles_out, gene_out)
+        feat = self.cross_att(smiles_out, gene_out)
 
         return self.reg(feat)
 
@@ -88,9 +86,10 @@ class MutSmiFullConnection(MutSmi):
         smiles_conf: AbsPosEncoderDecoderConfig = AdaMR.CONFIG_BASE,
     ) -> None:
         super().__init__(gene_conf, smiles_conf)
-        d_hidden = self.smiles_conf.d_model // 2
+        d_model = self.smiles_conf.d_model
+        d_hidden = d_model // 2
         self.reg = nn.Sequential(
-            nn.Linear(self.smiles_conf.d_model, d_hidden),
+            nn.Linear(d_model, d_hidden),
             nn.ReLU(),
             nn.Dropout(0.1),
             nn.Linear(d_hidden, 1),
@@ -101,8 +100,6 @@ class MutSmiFullConnection(MutSmi):
     ) -> torch.Tensor:
         smiles_out = self.smiles_encoder.forward_feature(smiles_src, smiles_tgt)
         gene_out = self.gene_encoder(gene_src)
-
-        feat = None
         feat = smiles_out + gene_out
 
         return self.reg(feat)
