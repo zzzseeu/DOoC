@@ -16,21 +16,9 @@ class MutSmi(nn.Module):
         super().__init__()
         self.gene_conf = gene_conf
         self.smiles_conf = smiles_conf
-        self.d_model = self.smiles_conf.d_model
-        self.init_smiles_encoder = AdaMR(smiles_conf)
+        self.smiles_encoder = AdaMR(smiles_conf)
 
-        self.init_gene_encoder = nets.GeneGNN(gene_conf)
-        self.gene_fc = nn.Linear(gene_conf.num_hiddens_genotype, self.d_model)
-
-    def smiles_encoder(self, smiles_src: torch.Tensor, smiles_tgt: torch.Tensor) -> torch.Tensor:
-        smiles_out = self.init_smiles_encoder.forward_feature(smiles_src, smiles_tgt)
-        return smiles_out
-        # return smiles_out.unsqueeze(0) if smiles_out.dim() == 1 else smiles_out
-
-    def gene_encoder(self, gene_src: torch.Tensor) -> torch.Tensor:
-        gene_out = self.init_gene_encoder(gene_src)
-        gene_out = self.gene_fc(gene_out)
-        return gene_out
+        self.gene_encoder = nets.GeneGNN(gene_conf)
 
     def load_ckpt(self, *ckpt_files: str) -> None:
         """load check point model.
@@ -67,13 +55,13 @@ class MutSmiXAttention(MutSmi):
         smiles_conf: AbsPosEncoderDecoderConfig = AdaMR.CONFIG_BASE,
     ) -> None:
         super().__init__(gene_conf, smiles_conf)
-        d_hidden = self.d_model // 2
-        decoder_layer = nn.TransformerDecoderLayer(self.d_model,
+        d_hidden = self.smiles_conf.d_model // 2
+        decoder_layer = nn.TransformerDecoderLayer(self.smiles_conf.d_model,
                                                    nhead)
         self.smixmut_decoder = nn.TransformerDecoder(decoder_layer,
                                                      num_layers)
         self.reg = nn.Sequential(
-            nn.Linear(self.d_model, d_hidden),
+            nn.Linear(self.smiles_conf.d_model, d_hidden),
             nn.ReLU(),
             nn.Dropout(0.1),
             nn.Linear(d_hidden, 1),
@@ -83,7 +71,7 @@ class MutSmiXAttention(MutSmi):
         self, smiles_src: torch.Tensor, smiles_tgt: torch.Tensor, gene_src: torch.Tensor
     ) -> torch.Tensor:
         assert smiles_src.dim() == 2 and smiles_tgt.dim() == 2
-        smiles_out = self.smiles_encoder(smiles_src, smiles_tgt)
+        smiles_out = self.smiles_encoder.forward_feature(smiles_src, smiles_tgt)
         gene_out = self.gene_encoder(gene_src)
         feat = None
         feat = self.smixmut_decoder(smiles_out, gene_out)
@@ -100,9 +88,9 @@ class MutSmiFullConnection(MutSmi):
         smiles_conf: AbsPosEncoderDecoderConfig = AdaMR.CONFIG_BASE,
     ) -> None:
         super().__init__(gene_conf, smiles_conf)
-        d_hidden = self.d_model // 2
+        d_hidden = self.smiles_conf.d_model // 2
         self.reg = nn.Sequential(
-            nn.Linear(self.d_model, d_hidden),
+            nn.Linear(self.smiles_conf.d_model, d_hidden),
             nn.ReLU(),
             nn.Dropout(0.1),
             nn.Linear(d_hidden, 1),
@@ -111,7 +99,7 @@ class MutSmiFullConnection(MutSmi):
     def forward(
         self, smiles_src: torch.Tensor, smiles_tgt: torch.Tensor, gene_src: torch.Tensor
     ) -> torch.Tensor:
-        smiles_out = self.smiles_encoder(smiles_src, smiles_tgt)
+        smiles_out = self.smiles_encoder.forward_feature(smiles_src, smiles_tgt)
         gene_out = self.gene_encoder(gene_src)
 
         feat = None

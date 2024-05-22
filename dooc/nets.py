@@ -7,6 +7,7 @@ from dooc.utils import load_gene_mapping, load_ontology
 
 @dataclass
 class GeneGNNConfig:
+    d_model: int
     gene_dim: int
     drug_dim: int
     num_hiddens_genotype: int
@@ -24,6 +25,7 @@ class GeneGNN(nn.Module):
     """
 
     DEFAULT_CONFIG = GeneGNNConfig(
+        d_model=768,
         gene_dim=3008,
         drug_dim=2048,
         num_hiddens_genotype=6,
@@ -49,6 +51,8 @@ class GeneGNN(nn.Module):
         self._construct_nn_graph()
         self._construct_nn_drug()
         self._construct_final_layer()
+        self.final_fc_layer = nn.Linear(self.conf.num_hiddens_genotype,
+                                        self.conf.d_model)
 
     def _contruct_direct_gene_layer(self):
         """
@@ -225,4 +229,5 @@ class GeneGNN(nn.Module):
                 )
 
         out = term_nn_out_map[self.dg_root]
+        out = self.final_fc_layer(out)
         return out
