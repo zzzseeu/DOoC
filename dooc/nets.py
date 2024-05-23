@@ -7,6 +7,7 @@ from dooc.utils import load_gene_mapping, load_ontology
 
 @dataclass
 class GeneGNNConfig:
+    d_model: int
     gene_dim: int
     drug_dim: int
     num_hiddens_genotype: int
@@ -24,6 +25,7 @@ class GeneGNN(nn.Module):
     """
 
     DEFAULT_CONFIG = GeneGNNConfig(
+        d_model=768,
         gene_dim=3008,
         drug_dim=2048,
         num_hiddens_genotype=6,
@@ -36,6 +38,7 @@ class GeneGNN(nn.Module):
     def __init__(self, conf: GeneGNNConfig = DEFAULT_CONFIG) -> None:
         super().__init__()
         self.conf = conf
+        d_model = self.conf.d_model
 
         dg, dg_root, term_size_map, term_direct_gene_map = self._get_params()
         self.dg, self.dg_root = dg, dg_root
@@ -49,6 +52,8 @@ class GeneGNN(nn.Module):
         self._construct_nn_graph()
         self._construct_nn_drug()
         self._construct_final_layer()
+        self.out_fc = nn.Linear(self.conf.num_hiddens_genotype,
+                                d_model)
 
     def _contruct_direct_gene_layer(self):
         """
@@ -181,7 +186,8 @@ class GeneGNN(nn.Module):
         """
         removed drug layer
         """
-
+        x_dim = x.dim()
+        x = x.unsqueeze(0) if x_dim == 1 else x
         gene_input = x.narrow(1, 0, self.conf.gene_dim)
         # drug_input = x.narrow(1, self.conf.gene_dim, self.conf.drug_dim)
 
@@ -223,4 +229,6 @@ class GeneGNN(nn.Module):
                     aux_layer1_out
                 )
 
-        return term_nn_out_map[self.dg_root]
+        out = term_nn_out_map[self.dg_root]
+        out = self.out_fc(out)
+        return out

@@ -49,7 +49,11 @@ class MutSmiXAttention(MutSmi):
         super().__init__(smi_tokenizer, model, device)
 
     def __call__(self, gene: typing.Sequence[int], smiles: str) -> float:
-        return
+        smi_src, smi_tgt, gene_src = self._model_args(gene, smiles)
+        smi_src = smi_src.unsqueeze(0)
+        smi_tgt = smi_tgt.unsqueeze(0)
+        pred = self.model(smi_src, smi_tgt, gene_src)
+        return pred.item()
 
 
 class MutSmiFullConnection(MutSmi):

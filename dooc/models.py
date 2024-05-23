@@ -49,35 +49,18 @@ class MutSmiXAttention(MutSmi):
 
     def __init__(
         self,
-        d_model: int,
+        nhead: int = 2,
+        num_layers: int = 2,
         gene_conf: nets.GeneGNNConfig = nets.GeneGNN.DEFAULT_CONFIG,
         smiles_conf: AbsPosEncoderDecoderConfig = AdaMR.CONFIG_BASE,
     ) -> None:
         super().__init__(gene_conf, smiles_conf)
-        self.d_model = d_model
-
-    def forward(
-        self, smiles_src: torch.Tensor, smiles_tgt: torch.Tensor, gene_src: torch.Tensor
-    ) -> torch.Tensor:
-        pass
-
-
-class MutSmiFullConnection(MutSmi):
-    """Regression model using fully connection."""
-
-    def __init__(
-        self,
-        d_model: int,
-        gene_conf: nets.GeneGNNConfig = nets.GeneGNN.DEFAULT_CONFIG,
-        smiles_conf: AbsPosEncoderDecoderConfig = AdaMR.CONFIG_BASE,
-    ) -> None:
-        super().__init__(gene_conf, smiles_conf)
-        self.d_model = d_model
-
+        d_model = self.smiles_conf.d_model
         d_hidden = d_model // 2
-        self.gene_fc = nn.Linear(self.gene_conf.num_hiddens_genotype, self.d_model)
+        layer = nn.TransformerDecoderLayer(d_model, nhead)
+        self.cross_att = nn.TransformerDecoder(layer, num_layers)
         self.reg = nn.Sequential(
-            nn.Linear(self.d_model, d_hidden),
+            nn.Linear(d_model, d_hidden),
             nn.ReLU(),
             nn.Dropout(0.1),
             nn.Linear(d_hidden, 1),
@@ -86,15 +69,37 @@ class MutSmiFullConnection(MutSmi):
     def forward(
         self, smiles_src: torch.Tensor, smiles_tgt: torch.Tensor, gene_src: torch.Tensor
     ) -> torch.Tensor:
-        is_batched = smiles_src.dim() == 2
-
+        assert smiles_src.dim() == 2 and smiles_tgt.dim() == 2
         smiles_out = self.smiles_encoder.forward_feature(smiles_src, smiles_tgt)
-        gene_out = self.gene_encoder(gene_src).unsqueeze(1)
+        gene_out = self.gene_encoder(gene_src)
+        feat = self.cross_att(smiles_out, gene_out)
 
-        feat = None
-        if is_batched:
-            feat = smiles_out + self.gene_fc(gene_out)[:, 0]
-        else:
-            feat = smiles_out[0] + self.gene_fc(gene_out)[0]
+        return self.reg(feat)
+
+
+class MutSmiFullConnection(MutSmi):
+    """Regression model using fully connection."""
+
+    def __init__(
+        self,
+        gene_conf: nets.GeneGNNConfig = nets.GeneGNN.DEFAULT_CONFIG,
+        smiles_conf: AbsPosEncoderDecoderConfig = AdaMR.CONFIG_BASE,
+    ) -> None:
+        super().__init__(gene_conf, smiles_conf)
+        d_model = self.smiles_conf.d_model
+        d_hidden = d_model // 2
+        self.reg = nn.Sequential(
+            nn.Linear(d_model, d_hidden),
+            nn.ReLU(),
+            nn.Dropout(0.1),
+            nn.Linear(d_hidden, 1),
+        )
+
+    def forward(
+        self, smiles_src: torch.Tensor, smiles_tgt: torch.Tensor, gene_src: torch.Tensor
+    ) -> torch.Tensor:
+        smiles_out = self.smiles_encoder.forward_feature(smiles_src, smiles_tgt)
+        gene_out = self.gene_encoder(gene_src)
+        feat = smiles_out + gene_out
 
         return self.reg(feat)
