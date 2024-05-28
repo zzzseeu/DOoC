@@ -57,7 +57,7 @@ class MutSmiXAttention(MutSmi):
         super().__init__(gene_conf, smiles_conf)
         d_model = self.smiles_conf.d_model
         d_hidden = d_model // 2
-        layer = nn.TransformerDecoderLayer(d_model, nhead)
+        layer = nn.TransformerDecoderLayer(d_model, nhead, batch_first=True)
         self.cross_att = nn.TransformerDecoder(layer, num_layers)
         self.reg = nn.Sequential(
             nn.Linear(d_model, d_hidden),
@@ -69,12 +69,12 @@ class MutSmiXAttention(MutSmi):
     def forward(
         self, smiles_src: torch.Tensor, smiles_tgt: torch.Tensor, gene_src: torch.Tensor
     ) -> torch.Tensor:
-        assert smiles_src.dim() == 2 and smiles_tgt.dim() == 2
-        smiles_out = self.smiles_encoder.forward_feature(smiles_src, smiles_tgt)
-        gene_out = self.gene_encoder(gene_src)
-        feat = self.cross_att(smiles_out, gene_out)
+        smiles_out = self.smiles_encoder.forward_feature(smiles_src, smiles_tgt).unsqueeze(-2)  # [b, 1, dmodel]
+        gene_out = self.gene_encoder(gene_src).unsqueeze(-2)  # [b, 1, dmodel]
 
-        return self.reg(feat)
+        feat = self.cross_att(smiles_out, gene_out)  # [b, 1, dmodel]
+
+        return self.reg(feat.squeeze(-2))  # [b, 1]
 
 
 class MutSmiFullConnection(MutSmi):
@@ -98,8 +98,8 @@ class MutSmiFullConnection(MutSmi):
     def forward(
         self, smiles_src: torch.Tensor, smiles_tgt: torch.Tensor, gene_src: torch.Tensor
     ) -> torch.Tensor:
-        smiles_out = self.smiles_encoder.forward_feature(smiles_src, smiles_tgt)
-        gene_out = self.gene_encoder(gene_src)
+        smiles_out = self.smiles_encoder.forward_feature(smiles_src, smiles_tgt)  # [b, dmodel]
+        gene_out = self.gene_encoder(gene_src)  # [b, dmodel]
         feat = smiles_out + gene_out
 
-        return self.reg(feat)
+        return self.reg(feat)  # [b, 1]

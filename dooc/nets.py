@@ -231,4 +231,6 @@ class GeneGNN(nn.Module):
 
         out = term_nn_out_map[self.dg_root]
         out = self.out_fc(out)
+        if x_dim == 1:
+            out = out.squeeze(0)
         return out
