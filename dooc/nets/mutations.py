@@ -1,12 +1,91 @@
 import os
+import typing
+from dataclasses import dataclass
+from collections import defaultdict
 import torch
 from torch import nn
-from dataclasses import dataclass
-from dooc.utils import load_gene_mapping, load_ontology
+import networkx as nx
+import networkx.algorithms.components.connected as nxacc
+import networkx.algorithms.dag as nxadag
+
+
+def _load_gene_mapping(file_path: str) -> dict:
+    res = {}
+
+    with open(file_path) as f:
+        for line in f:
+            line = line.rstrip().split()
+            res[line[1]] = int(line[0])
+
+    return res
+
+
+def _load_ontology(file_name: str, gene2id_mapping: dict) -> typing.Sequence:
+    dg = nx.DiGraph()
+    term_direct_gene_map = defaultdict(set)
+
+    term_size_map, gene_set = {}, set()
+
+    file_handle = open(file_name)
+    for line in file_handle:
+        line = line.rstrip().split()
+        if line[2] == "default":
+            dg.add_edge(line[0], line[1])
+            continue
+
+        if line[1] not in gene2id_mapping:
+            continue
+        if line[0] not in term_direct_gene_map:
+            term_direct_gene_map[line[0]] = set()
+
+        term_direct_gene_map[line[0]].add(gene2id_mapping[line[1]])
+        gene_set.add(line[1])
+    file_handle.close()
+
+    print("There are", len(gene_set), "genes")
+
+    leaves = []
+    for term in dg.nodes():
+        term_gene_set = set()
+        if term in term_direct_gene_map:
+            term_gene_set = term_direct_gene_map[term]
+
+        deslist = nxadag.descendants(dg, term)
+
+        for child in deslist:
+            if child in term_direct_gene_map:
+                term_gene_set = term_gene_set | term_direct_gene_map[child]
+
+        if len(term_gene_set) == 0:
+            raise ValueError(f"There is empty terms, please delete term: {term}")
+
+        term_size_map[term] = len(term_gene_set)
+
+        if dg.in_degree(term) == 0:
+            leaves.append(term)
+
+    ug = dg.to_undirected()
+    connected_subg_list = list(nxacc.connected_components(ug))
+
+    print("There are", len(leaves), "roots:", leaves[0])
+    print("There are", len(dg.nodes()), "terms")
+    print("There are", len(connected_subg_list), "connected componenets")
+
+    if len(leaves) > 1:
+        raise ValueError(
+            "There are more than 1 root of ontology. Please use only one root."
+        )
+
+    if len(connected_subg_list) > 1:
+        raise ValueError(
+            "There are more than connected components. Please connect them."
+        )
+
+    return dg, leaves[0], term_size_map, term_direct_gene_map
 
 
 @dataclass
-class GeneGNNConfig:
+class DrugcellConfig:
     d_model: int
     gene_dim: int
     drug_dim: int
@@ -17,25 +96,25 @@ class GeneGNNConfig:
     ont_path: str
 
 
-class GeneGNN(nn.Module):
+class Drugcell(nn.Module):
     """GNN for mutations embeddings.
 
     reference: https://github.com/idekerlab/DrugCell/
 
     """
 
-    DEFAULT_CONFIG = GeneGNNConfig(
+    DEFAULT_CONFIG = DrugcellConfig(
         d_model=768,
         gene_dim=3008,
         drug_dim=2048,
         num_hiddens_genotype=6,
         num_hiddens_drug=[100, 50, 6],
         num_hiddens_final=6,
-        gene2ind_path=os.path.join(os.path.dirname(__file__), "data", "gene2ind.txt"),
-        ont_path=os.path.join(os.path.dirname(__file__), "data", "drugcell_ont.txt"),
+        gene2ind_path=os.path.join(os.path.dirname(__file__), "../data", "gene2ind.txt"),
+        ont_path=os.path.join(os.path.dirname(__file__), "../data", "drugcell_ont.txt"),
     )
 
-    def __init__(self, conf: GeneGNNConfig = DEFAULT_CONFIG) -> None:
+    def __init__(self, conf: DrugcellConfig = DEFAULT_CONFIG) -> None:
         super().__init__()
         self.conf = conf
         d_model = self.conf.d_model
@@ -171,8 +250,8 @@ class GeneGNN(nn.Module):
             self.term_dim_map[term] = num_output
 
     def _get_params(self):
-        gene2id_mapping = load_gene_mapping(self.conf.gene2ind_path)
-        dg, dg_root, term_size_map, term_direct_gene_map = load_ontology(
+        gene2id_mapping = _load_gene_mapping(self.conf.gene2ind_path)
+        dg, dg_root, term_size_map, term_direct_gene_map = _load_ontology(
             self.conf.ont_path, gene2id_mapping
         )
         return dg, dg_root, term_size_map, term_direct_gene_map
@@ -184,8 +263,9 @@ class GeneGNN(nn.Module):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
-        removed drug layer
+        omit drug layer, cmp to origin drugcell
         """
+        x = x.float()
         x_dim = x.dim()
         x = x.unsqueeze(0) if x_dim == 1 else x
         gene_input = x.narrow(1, 0, self.conf.gene_dim)

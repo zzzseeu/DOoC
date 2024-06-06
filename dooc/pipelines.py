@@ -1,69 +1,119 @@
 import typing
+from functools import cmp_to_key
 import torch
+import torch.nn as nn
 from moltx import tokenizers
-from dooc import models
 
 
-class MutSmi:
-    def __init__(
-        self,
-        smi_tokenizer: tokenizers.MoltxTokenizer,
-        model: models.MutSmi,
-        device: torch.device = torch.device("cpu"),
-    ) -> None:
+class _MutSmiBase:
+    def __init__(self, smi_tokenizer: tokenizers.MoltxTokenizer, model: nn.Module, device: torch.device = torch.device("cpu")) -> None:
         self.smi_tokenizer = smi_tokenizer
-
+        self.device = device
         model = model.to(device)
         model.eval()
         model.requires_grad_(False)
         self.model = model
 
-        self.device = device
+    def _tokens2tensor(self, tokens: typing.Sequence[int], size: int = None) -> torch.Tensor:
+        if size is None:
+            size = len(tokens)
+        if len(tokens) > size:
+            raise IndexError('the length of tokens is greater than size!')
+        out = torch.zeros(size, dtype=torch.int)
+        for i, tk in enumerate(tokens):
+            out[i] = tk
+        return out.to(self.device)
+
+
+class _DrugcellAdamrMutSmi(_MutSmiBase):
 
     def _model_args(
-        self, gene: typing.Sequence[int], smiles: str
+        self, mut: typing.Sequence[int], smi: str
     ) -> typing.Tuple[torch.Tensor]:
-        smi_src = self.gen_smi_token(smiles)
-        smi_tgt = self.gen_smi_token(self.smi_tokenizer.BOS + smiles + self.smi_tokenizer.EOS)
-        gene_src = self.gen_gene_token(gene)
-        return smi_src, smi_tgt, gene_src
+        mut_x = torch.tensor(mut, device=self.device)
+        smi_src = self._tokens2tensor(self.smi_tokenizer(smi))
+        smi_tgt = self._tokens2tensor(self.smi_tokenizer(self.smi_tokenizer.BOS + smi + self.smi_tokenizer.EOS))
+        return mut_x, smi_src, smi_tgt
 
-    def gen_smi_token(self, smiles: str) -> torch.Tensor:
-        tokens = self.smi_tokenizer(smiles)
-        res = torch.zeros(len(tokens), dtype=torch.int)
-        for i, tk in enumerate(tokens):
-            res[i] = tk
-        return res.to(self.device)
+    def reg(self, mut: typing.Sequence[int], smi: str) -> float:
+        return self.model(*self._model_args(mut, smi)).item()
 
-    def gen_gene_token(self, gene: typing.Sequence[float]) -> torch.Tensor:
-        return torch.tensor(gene, dtype=torch.float).to(self.device)
+    def cmp_smis_func(self, mut: typing.Sequence[int]) -> typing.Callable:
+        cmped = {}
 
-
-class MutSmiXAttention(MutSmi):
-    def __init__(
-        self,
-        smi_tokenizer: tokenizers.MoltxTokenizer,
-        model: models.MutSmiXAttention,
-        device: torch.device = torch.device("cpu"),
-    ) -> None:
-        super().__init__(smi_tokenizer, model, device)
-
-    def __call__(self, gene: typing.Sequence[int], smiles: str) -> float:
-        smi_src, smi_tgt, gene_src = self._model_args(gene, smiles)
-        pred = self.model(smi_src, smi_tgt, gene_src)
-        return pred.item()
+        def cmp(smi1, smi2):
+            query = '-'.join([smi1, smi2])
+            if query in cmped:
+                return cmped[query]
+            out1 = self.reg(mut, smi1)
+            out2 = self.reg(mut, smi2)
+            out = out1 - out2
+            cmped[query] = out
+            return out
+        return cmp
 
 
-class MutSmiFullConnection(MutSmi):
-    def __init__(
-        self,
-        smi_tokenizer: tokenizers.MoltxTokenizer,
-        model: models.MutSmiFullConnection,
-        device: torch.device = torch.device("cpu"),
-    ) -> None:
-        super().__init__(smi_tokenizer, model, device)
+class _DrugcellAdamrMutSmis(_MutSmiBase):
 
-    def __call__(self, gene: typing.Sequence[int], smiles: str) -> float:
-        smi_src, smi_tgt, gene_src = self._model_args(gene, smiles)
-        pred = self.model(smi_src, smi_tgt, gene_src)
-        return pred.item()
+    def _smi_args(
+        self, smis: typing.Sequence[str]
+    ) -> typing.Tuple[torch.Tensor]:
+        smi_src = [self.smi_tokenizer(smi) for smi in smis]
+        smi_tgt = [self.smi_tokenizer(self.smi_tokenizer.BOS + smi + self.smi_tokenizer.EOS) for smi in smis]
+        size_src = max(map(len, smi_src))
+        size_tgt = max(map(len, smi_tgt))
+        smi_src = torch.concat([self._tokens2tensor(smi, size_src).unsqueeze(0) for smi in smi_src])
+        smi_tgt = torch.concat([self._tokens2tensor(smi, size_tgt).unsqueeze(0) for smi in smi_tgt])
+        return smi_src, smi_tgt
+
+    def cmp_smis_func(self, mut: typing.Sequence[int]) -> typing.Callable:
+        mut_x = torch.tensor(mut, device=self.device)
+        cmped = {}
+
+        def cmp(smi1, smi2):
+            smis = [smi1, smi2]
+            query = '-'.join(smis)
+            if query in cmped:
+                return cmped[query]
+            smi_src, smi_tgt = self._smi_args(smis)
+            out = self.model.forward_cmp(mut_x, smi_src, smi_tgt)
+            cmped[query] = out
+            return out
+        return cmp
+
+
+class _DrugcellAdamr2MutSmi(_MutSmiBase):
+    pass
+
+
+class _DrugcellAdamr2MutSmis(_MutSmiBase):
+    pass
+
+
+class _MutSmiReg:
+
+    def __call__(self, mut: typing.Sequence[int], smi: str) -> typing.Dict:
+        return self.reg(mut, smi)
+
+
+class _MutSmisRank:
+
+    def __call__(self, mut: typing.Sequence[int], smis: typing.Sequence[str]) -> typing.Sequence[str]:
+        return sorted(smis, key=cmp_to_key(self.cmp_smis_func(mut)))
+
+
+"""
+Mutations(Individual Sample) and Smiles Interaction
+
+MutSmiReg
+MutSmisRank
+MutsSmiRank
+"""
+
+
+class MutSmiReg(_DrugcellAdamrMutSmi, _MutSmiReg):
+    pass
+
+
+class MutSmisRank(_DrugcellAdamrMutSmis, _MutSmisRank):
+    pass
