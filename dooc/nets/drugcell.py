@@ -88,10 +88,7 @@ def _load_ontology(file_name: str, gene2id_mapping: dict) -> typing.Sequence:
 class DrugcellConfig:
     d_model: int
     gene_dim: int
-    drug_dim: int
     num_hiddens_genotype: int
-    num_hiddens_drug: list
-    num_hiddens_final: int
     gene2ind_path: str
     ont_path: str
 
@@ -106,10 +103,7 @@ class Drugcell(nn.Module):
     DEFAULT_CONFIG = DrugcellConfig(
         d_model=768,
         gene_dim=3008,
-        drug_dim=2048,
         num_hiddens_genotype=6,
-        num_hiddens_drug=[100, 50, 6],
-        num_hiddens_final=6,
         gene2ind_path=os.path.join(os.path.dirname(__file__), "../data", "gene2ind.txt"),
         ont_path=os.path.join(os.path.dirname(__file__), "../data", "drugcell_ont.txt"),
     )
@@ -117,7 +111,6 @@ class Drugcell(nn.Module):
     def __init__(self, conf: DrugcellConfig = DEFAULT_CONFIG) -> None:
         super().__init__()
         self.conf = conf
-        d_model = self.conf.d_model
 
         dg, dg_root, term_size_map, term_direct_gene_map = self._get_params()
         self.dg, self.dg_root = dg, dg_root
@@ -129,10 +122,7 @@ class Drugcell(nn.Module):
         self._cal_term_dim()
         self._contruct_direct_gene_layer()
         self._construct_nn_graph()
-        self._construct_nn_drug()
         self._construct_final_layer()
-        self.out_fc = nn.Linear(self.conf.num_hiddens_genotype,
-                                d_model)
 
     def _contruct_direct_gene_layer(self):
         """
@@ -147,29 +137,6 @@ class Drugcell(nn.Module):
                 term + "_direct_gene_layer",
                 nn.Linear(self.conf.gene_dim, len(gene_set)),
             )
-
-    def _construct_nn_drug(self):
-        """
-        add modules for fully connected neural networks for drug processing
-        """
-        input_size = self.conf.drug_dim
-
-        for i in range(len(self.conf.num_hiddens_drug)):
-            self.add_module(
-                "drug_linear_layer_" + str(i + 1),
-                nn.Linear(input_size, self.conf.num_hiddens_drug[i]),
-            )
-            self.add_module(
-                "drug_batchnorm_layer_" + str(i + 1),
-                nn.BatchNorm1d(self.conf.num_hiddens_drug[i]),
-            )
-            self.add_module(
-                "drug_aux_linear_layer1_" + str(i + 1),
-                nn.Linear(self.conf.num_hiddens_drug[i], 1),
-            )
-            self.add_module("drug_aux_linear_layer2_" + str(i + 1), nn.Linear(1, 1))
-
-            input_size = self.conf.num_hiddens_drug[i]
 
     def _construct_nn_graph(self):
         """
@@ -212,8 +179,6 @@ class Drugcell(nn.Module):
                     term + "_linear_layer", nn.Linear(input_size, term_hidden)
                 )
                 self.add_module(term + "_batchnorm_layer", nn.BatchNorm1d(term_hidden))
-                self.add_module(term + "_aux_linear_layer1", nn.Linear(term_hidden, 1))
-                self.add_module(term + "_aux_linear_layer2", nn.Linear(1, 1))
 
             self.dg.remove_nodes_from(leaves)
 
@@ -221,20 +186,10 @@ class Drugcell(nn.Module):
         """
         add modules for final layer
         """
-        final_input_size = (
-            self.conf.num_hiddens_genotype + self.conf.num_hiddens_drug[-1]
-        )
         self.add_module(
             "final_linear_layer",
-            nn.Linear(final_input_size, self.conf.num_hiddens_final),
+            nn.Linear(self.conf.num_hiddens_genotype, self.conf.d_model),
         )
-        self.add_module(
-            "final_batchnorm_layer", nn.BatchNorm1d(self.conf.num_hiddens_final)
-        )
-        self.add_module(
-            "final_aux_linear_layer", nn.Linear(self.conf.num_hiddens_final, 1)
-        )
-        self.add_module("final_linear_layer_output", nn.Linear(1, 1))
 
     def _cal_term_dim(self):
         """
@@ -269,7 +224,6 @@ class Drugcell(nn.Module):
         x_dim = x.dim()
         x = x.unsqueeze(0) if x_dim == 1 else x
         gene_input = x.narrow(1, 0, self.conf.gene_dim)
-        # drug_input = x.narrow(1, self.conf.gene_dim, self.conf.drug_dim)
 
         # define forward function for genotype dcell #############################################
         term_gene_out_map = {}
@@ -280,7 +234,6 @@ class Drugcell(nn.Module):
             )
 
         term_nn_out_map = {}
-        aux_out_map = {}
 
         for _, layer in enumerate(self.term_layer_list):
 
@@ -302,15 +255,8 @@ class Drugcell(nn.Module):
                 term_nn_out_map[term] = self._modules[term + "_batchnorm_layer"](
                     tanh_out
                 )
-                aux_layer1_out = torch.tanh(
-                    self._modules[term + "_aux_linear_layer1"](term_nn_out_map[term])
-                )
-                aux_out_map[term] = self._modules[term + "_aux_linear_layer2"](
-                    aux_layer1_out
-                )
 
-        out = term_nn_out_map[self.dg_root]
-        out = self.out_fc(out)
+        out = self._modules['final_linear_layer'](term_nn_out_map[self.dg_root])
         if x_dim == 1:
             out = out.squeeze(0)
         return out

@@ -1,7 +1,6 @@
 import pytest
 import random
 from moltx import models as mmodel
-from dooc.nets import mutations
 from dooc import nets, datasets
 
 
@@ -11,7 +10,7 @@ def adamr_conf():
 
 @pytest.fixture
 def drugcell_conf():
-    return mutations.Drugcell.DEFAULT_CONFIG
+    return nets.Drugcell.DEFAULT_CONFIG
 
 @pytest.fixture
 def drugcell_adamr_mut_smi_ds(smi_tkz):

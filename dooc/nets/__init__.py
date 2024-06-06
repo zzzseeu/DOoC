@@ -1,7 +1,7 @@
 import torch
 from torch import nn
 from moltx.models import AdaMR
-from dooc.nets.mutations import Drugcell
+from dooc.nets.drugcell import Drugcell
 
 
 """
