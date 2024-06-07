@@ -60,4 +60,4 @@ def test_MutSmisPairwise(smi_tkz):
     assert smi_src.shape == (2, 2, 200)
     assert smi_tgt.shape == (2, 2, 200)
     assert mut_x.shape == (2, 52)
-    assert out.shape == (2, 1)
+    assert out.shape == (2,)

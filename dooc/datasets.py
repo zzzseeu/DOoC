@@ -128,4 +128,4 @@ class MutSmisPairwise(_DrugcellAdamrMutSmis):
         mut_x, smi_src, smi_tgt, rout = super().__call__(muts, lsmiles, lvalues, seq_len)
         out = torch.zeros(rout.size(0), dtype=torch.long, device=self.device)
         out[(rout[:, 0] - rout[:, 1]) > 0.0] = 1
-        return mut_x, smi_src, smi_tgt, out.unsqueeze(-1)
+        return mut_x, smi_src, smi_tgt, out
