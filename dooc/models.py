@@ -1,7 +1,7 @@
 import torch
 from moltx import models as mmodels
 from dooc import nets as dnets
-from dooc.nets import mutations, heads
+from dooc.nets import heads
 
 
 """
@@ -16,7 +16,7 @@ MutsSmi{Pair/List}
 class MutSmiReg(dnets.DrugcellAdamrMutSmiXattn):
 
     def __init__(self) -> None:
-        super().__init__(mut_conf=mutations.Drugcell.DEFAULT_CONFIG, smi_conf=mmodels.AdaMR.CONFIG_BASE)
+        super().__init__(mut_conf=dnets.Drugcell.DEFAULT_CONFIG, smi_conf=mmodels.AdaMR.CONFIG_BASE)
         self.reg = heads.RegHead(self.smi_conf.d_model)
 
     def forward(self, *args, **kwargs) -> torch.Tensor:
@@ -26,7 +26,7 @@ class MutSmiReg(dnets.DrugcellAdamrMutSmiXattn):
 class MutSmisPairwise(dnets.DrugcellAdamrMutSmisXattn):
 
     def __init__(self) -> None:
-        super().__init__(mut_conf=mutations.Drugcell.DEFAULT_CONFIG, smi_conf=mmodels.AdaMR.CONFIG_BASE)
+        super().__init__(mut_conf=dnets.Drugcell.DEFAULT_CONFIG, smi_conf=mmodels.AdaMR.CONFIG_BASE)
         self.pairwise_rank = heads.PairwiseRankHead(self.smi_conf.d_model)
 
     def forward(self, *args, **kwargs) -> torch.Tensor:
