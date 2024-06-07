@@ -122,7 +122,8 @@ class Drugcell(nn.Module):
         self._cal_term_dim()
         self._contruct_direct_gene_layer()
         self._construct_nn_graph()
-        self._construct_final_layer()
+        self.out_fc = nn.Linear(self.conf.num_hiddens_genotype,
+                                self.conf.d_model)
 
     def _contruct_direct_gene_layer(self):
         """
@@ -181,15 +182,6 @@ class Drugcell(nn.Module):
                 self.add_module(term + "_batchnorm_layer", nn.BatchNorm1d(term_hidden))
 
             self.dg.remove_nodes_from(leaves)
-
-    def _construct_final_layer(self):
-        """
-        add modules for final layer
-        """
-        self.add_module(
-            "final_linear_layer",
-            nn.Linear(self.conf.num_hiddens_genotype, self.conf.d_model),
-        )
 
     def _cal_term_dim(self):
         """
@@ -256,7 +248,7 @@ class Drugcell(nn.Module):
                     tanh_out
                 )
 
-        out = self._modules['final_linear_layer'](term_nn_out_map[self.dg_root])
+        out = self.out_fc(term_nn_out_map[self.dg_root])
         if x_dim == 1:
             out = out.squeeze(0)
         return out
