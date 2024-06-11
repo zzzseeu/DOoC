@@ -92,16 +92,53 @@ class _DrugcellAdamrMutSmis(_DrugcellAdamrBase):
         return mut_x, smi_src, smi_tgt, out
 
 
-class _DrugcellAdamr2Base(_SmiMutBase):
-    pass
+class _DrugcellAdamr2Base(_DrugcellAdamrBase):
+    def _smi_tokens(
+        self,
+        smiles: typing.Sequence[str],
+        seq_len: int = 200,
+    ) -> torch.Tensor:
+        return self._smi_tokenize(
+            [f"{self.smi_tokenizer.BOS}{smi}{self.smi_tokenizer.EOS}" for smi in smiles], seq_len)
 
 
 class _DrugcellAdamr2MutSmi(_DrugcellAdamr2Base):
-    pass
+    def __call__(
+        self,
+        muts: typing.Sequence[list],
+        smis: typing.Sequence[str],
+        vals: typing.Sequence[float],
+        seq_len: int = 200
+    ) -> typing.Tuple[torch.Tensor]:
+        assert len(smis) == len(vals) and len(muts) == len(vals)
+        mut_x = self._mut_tokens(muts)
+        smi_tgt = self._smi_tokens(smis, seq_len)
+        out = self._out(vals).unsqueeze(-1)
+        return mut_x, smi_tgt, out
 
 
-class _DrugcellAdamr2MutSmisPairwiseRank(_DrugcellAdamr2Base):
-    pass
+class _DrugcellAdamr2MutSmis(_DrugcellAdamr2Base):
+    def __call__(
+        self,
+        muts: typing.Sequence[list],
+        lsmis: typing.Sequence[typing.Sequence[str]],
+        lvals: typing.Sequence[typing.Sequence[float]],
+        seq_len: int = 200
+    ) -> typing.Tuple[torch.Tensor]:
+        """
+        muts: [mut1, mut2, ...] mut1: [gene1, gene2, ...]
+        bsmiles: [[smi11, smi12], [smi21, smi22], ...]
+        bvlaues: [[val11, val12], [val21, val22], ...]
+        """
+        assert len(lsmis) == len(lvals) and len(muts) == len(lvals)
+        mut_x = self._mut_tokens(muts)
+        batchlen = len(lsmis)
+        listlen = len(lsmis[0])
+        smiles = [smi for bsmi in lsmis for smi in bsmi]
+        smi_tgt = self._smi_tokens(smiles, seq_len)
+        smi_tgt = smi_tgt.reshape(batchlen, listlen, smi_tgt.size(-1))
+        out = self._out(lvals)
+        return mut_x, smi_tgt, out
 
 
 """
@@ -113,11 +150,11 @@ MutsSmi{Pair/List}
 """
 
 
-class MutSmiReg(_DrugcellAdamrMutSmi):
+class MutSmiReg(_DrugcellAdamr2MutSmi):
     pass
 
 
-class MutSmisPairwise(_DrugcellAdamrMutSmis):
+class MutSmisPairwise(_DrugcellAdamr2MutSmis):
     def __call__(
         self,
         muts: typing.Sequence[list],
@@ -125,7 +162,7 @@ class MutSmisPairwise(_DrugcellAdamrMutSmis):
         lvalues: typing.Sequence[typing.Sequence[float]],
         seq_len: int = 200
     ) -> typing.Tuple[torch.Tensor]:
-        mut_x, smi_src, smi_tgt, rout = super().__call__(muts, lsmiles, lvalues, seq_len)
+        mut_x, smi_tgt, rout = super().__call__(muts, lsmiles, lvalues, seq_len)
         out = torch.zeros(rout.size(0), dtype=torch.long, device=self.device)
         out[(rout[:, 0] - rout[:, 1]) > 0.0] = 1
-        return mut_x, smi_src, smi_tgt, out
+        return mut_x, smi_tgt, out

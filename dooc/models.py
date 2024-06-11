@@ -1,7 +1,8 @@
 import torch
+from moltx import nets as mnets
 from moltx import models as mmodels
 from dooc import nets as dnets
-from dooc.nets import heads
+from dooc.nets import heads, drugcell
 
 
 """
@@ -13,20 +14,20 @@ MutsSmi{Pair/List}
 """
 
 
-class MutSmiReg(dnets.DrugcellAdamrMutSmiXattn):
+class MutSmiReg(dnets.DrugcellAdamr2MutSmiXattn):
 
-    def __init__(self) -> None:
-        super().__init__(mut_conf=dnets.Drugcell.DEFAULT_CONFIG, smi_conf=mmodels.AdaMR.CONFIG_BASE)
+    def __init__(self, mut_conf: drugcell.DrugcellConfig = dnets.Drugcell.DEFAULT_CONFIG, smi_conf: mnets.AbsPosEncoderCausalConfig = mmodels.AdaMR2.CONFIG_LARGE) -> None:
+        super().__init__(mut_conf, smi_conf)
         self.reg = heads.RegHead(self.smi_conf.d_model)
 
     def forward(self, *args, **kwargs) -> torch.Tensor:
         return self.reg(super().forward(*args, **kwargs))  # [b, 1]
 
 
-class MutSmisPairwise(dnets.DrugcellAdamrMutSmisXattn):
+class MutSmisPairwise(dnets.DrugcellAdamr2MutSmisXattn):
 
-    def __init__(self) -> None:
-        super().__init__(mut_conf=dnets.Drugcell.DEFAULT_CONFIG, smi_conf=mmodels.AdaMR.CONFIG_BASE)
+    def __init__(self, mut_conf: drugcell.DrugcellConfig = dnets.Drugcell.DEFAULT_CONFIG, smi_conf: mnets.AbsPosEncoderCausalConfig = mmodels.AdaMR2.CONFIG_LARGE) -> None:
+        super().__init__(mut_conf, smi_conf)
         self.pairwise_rank = heads.PairwiseRankHead(self.smi_conf.d_model)
 
     def forward(self, *args, **kwargs) -> torch.Tensor:
