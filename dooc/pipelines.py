@@ -25,22 +25,10 @@ class _MutSmiBase:
         return out.to(self.device)
 
 
-"""
-Mutations(Individual Sample) and Smiles Interaction
+class _MutSmi(_MutSmiBase):
 
-MutSmiReg
-MutSmisRank
-MutsSmiRank
-"""
-
-
-class MutSmiReg(_MutSmiBase):
-    def _model_args(
-        self, mut: typing.Sequence[int], smi: str
-    ) -> typing.Tuple[torch.Tensor]:
-        mut_x = torch.tensor(mut, device=self.device)
-        smi_tgt = self._tokens2tensor(self.smi_tokenizer(self.smi_tokenizer.BOS + smi + self.smi_tokenizer.EOS))
-        return mut_x, smi_tgt
+    def _model_args(self, mut: typing.Sequence[int], smi: str) -> typing.Tuple[torch.Tensor]:
+        raise NotImplementedError
 
     def reg(self, mut: typing.Sequence[int], smi: str) -> float:
         return self.model(*self._model_args(mut, smi)).item()
@@ -59,18 +47,13 @@ class MutSmiReg(_MutSmiBase):
             return out
         return cmp
 
-    def __call__(self, mut: typing.Sequence[int], smi: str) -> typing.Dict:
-        return self.reg(mut, smi)
 
+class _MutSmis(_MutSmiBase):
 
-class MutSmisRank(_MutSmiBase):
     def _smi_args(
         self, smis: typing.Sequence[str]
-    ) -> torch.Tensor:
-        smi_tgt = [self.smi_tokenizer(self.smi_tokenizer.BOS + smi + self.smi_tokenizer.EOS) for smi in smis]
-        size_tgt = max(map(len, smi_tgt))
-        smi_tgt = torch.concat([self._tokens2tensor(smi, size_tgt).unsqueeze(0) for smi in smi_tgt])
-        return smi_tgt
+    ) -> typing.Tuple[torch.Tensor]:
+        raise NotImplementedError
 
     def cmp_smis_func(self, mut: typing.Sequence[int]) -> typing.Callable:
         mut_x = torch.tensor(mut, device=self.device)
@@ -81,11 +64,58 @@ class MutSmisRank(_MutSmiBase):
             query = '-'.join(smis)
             if query in cmped:
                 return cmped[query]
-            smi_tgt = self._smi_args(smis)
-            out = self.model.forward_cmp(mut_x, smi_tgt)
+            args = [mut_x]
+            args.extend(self._smi_args(smis))
+            out = self.model.forward_cmp(*args)
             cmped[query] = out
             return out
         return cmp
 
+
+class _MutSmiReg:
+
+    def __call__(self, mut: typing.Sequence[int], smi: str) -> typing.Dict:
+        return self.reg(mut, smi)
+
+
+class _MutSmisRank:
+
     def __call__(self, mut: typing.Sequence[int], smis: typing.Sequence[str]) -> typing.Sequence[str]:
         return sorted(smis, key=cmp_to_key(self.cmp_smis_func(mut)))
+
+
+"""
+Mutations(Individual Sample) and Smiles Interaction
+
+MutSmiReg
+MutSmisRank
+MutsSmiRank
+"""
+
+
+class MutSmiReg(_MutSmi, _MutSmiReg):
+    def _model_args(
+        self, mut: typing.Sequence[int], smi: str
+    ) -> typing.Tuple[torch.Tensor]:
+        mut_x = torch.tensor(mut, device=self.device)
+        smi_tgt = self._tokens2tensor(self.smi_tokenizer(self.smi_tokenizer.BOS + smi + self.smi_tokenizer.EOS))
+        return mut_x, smi_tgt
+
+
+class MutSmiPointwise(_MutSmi, _MutSmisRank):
+    def _model_args(
+        self, mut: typing.Sequence[int], smi: str
+    ) -> torch.Tensor:
+        mut_x = torch.tensor(mut, device=self.device)
+        smi_tgt = self._tokens2tensor(self.smi_tokenizer(self.smi_tokenizer.BOS + smi + self.smi_tokenizer.EOS))
+        return mut_x, smi_tgt
+
+
+class MutSmisRank(_MutSmis, _MutSmisRank):
+    def _smi_args(
+        self, smis: typing.Sequence[str]
+    ) -> typing.Tuple[torch.Tensor]:
+        smi_tgt = [self.smi_tokenizer(self.smi_tokenizer.BOS + smi + self.smi_tokenizer.EOS) for smi in smis]
+        size_tgt = max(map(len, smi_tgt))
+        smi_tgt = torch.concat([self._tokens2tensor(smi, size_tgt).unsqueeze(0) for smi in smi_tgt])
+        return (smi_tgt, )
