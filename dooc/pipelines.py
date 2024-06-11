@@ -25,15 +25,12 @@ class _MutSmiBase:
         return out.to(self.device)
 
 
-class _DrugcellAdamrMutSmi(_MutSmiBase):
+class _MutSmi(_MutSmiBase):
 
-    def _model_args(
-        self, mut: typing.Sequence[int], smi: str
-    ) -> typing.Tuple[torch.Tensor]:
+    def _model_args(self, mut: typing.Sequence[int], smi: str) -> typing.Tuple[torch.Tensor]:
         mut_x = torch.tensor(mut, device=self.device)
-        smi_src = self._tokens2tensor(self.smi_tokenizer(smi))
         smi_tgt = self._tokens2tensor(self.smi_tokenizer(self.smi_tokenizer.BOS + smi + self.smi_tokenizer.EOS))
-        return mut_x, smi_src, smi_tgt
+        return mut_x, smi_tgt
 
     def reg(self, mut: typing.Sequence[int], smi: str) -> float:
         return self.model(*self._model_args(mut, smi)).item()
@@ -53,18 +50,15 @@ class _DrugcellAdamrMutSmi(_MutSmiBase):
         return cmp
 
 
-class _DrugcellAdamrMutSmis(_MutSmiBase):
+class _MutSmis(_MutSmiBase):
 
     def _smi_args(
         self, smis: typing.Sequence[str]
-    ) -> typing.Tuple[torch.Tensor]:
-        smi_src = [self.smi_tokenizer(smi) for smi in smis]
+    ) -> torch.Tensor:
         smi_tgt = [self.smi_tokenizer(self.smi_tokenizer.BOS + smi + self.smi_tokenizer.EOS) for smi in smis]
-        size_src = max(map(len, smi_src))
         size_tgt = max(map(len, smi_tgt))
-        smi_src = torch.concat([self._tokens2tensor(smi, size_src).unsqueeze(0) for smi in smi_src])
         smi_tgt = torch.concat([self._tokens2tensor(smi, size_tgt).unsqueeze(0) for smi in smi_tgt])
-        return smi_src, smi_tgt
+        return smi_tgt
 
     def cmp_smis_func(self, mut: typing.Sequence[int]) -> typing.Callable:
         mut_x = torch.tensor(mut, device=self.device)
@@ -75,19 +69,11 @@ class _DrugcellAdamrMutSmis(_MutSmiBase):
             query = '-'.join(smis)
             if query in cmped:
                 return cmped[query]
-            smi_src, smi_tgt = self._smi_args(smis)
-            out = self.model.forward_cmp(mut_x, smi_src, smi_tgt)
+            smi_tgt = self._smi_args(smis)
+            out = self.model.forward_cmp(mut_x, smi_tgt)
             cmped[query] = out
             return out
         return cmp
-
-
-class _DrugcellAdamr2MutSmi(_MutSmiBase):
-    pass
-
-
-class _DrugcellAdamr2MutSmis(_MutSmiBase):
-    pass
 
 
 class _MutSmiReg:
@@ -111,9 +97,9 @@ MutsSmiRank
 """
 
 
-class MutSmiReg(_DrugcellAdamrMutSmi, _MutSmiReg):
+class MutSmiReg(_MutSmi, _MutSmiReg):
     pass
 
 
-class MutSmisRank(_DrugcellAdamrMutSmis, _MutSmisRank):
+class MutSmisRank(_MutSmis, _MutSmisRank):
     pass

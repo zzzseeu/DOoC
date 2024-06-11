@@ -189,7 +189,7 @@ class Drugcell(nn.Module):
         term_size_map is the number of all genes annotated with the term
         """
         self.term_dim_map = {}
-        for term, term_size in self.term_size_map.items():
+        for term in self.term_size_map.keys():
             num_output = self.conf.num_hiddens_genotype
 
             # log the number of hidden variables per each term
@@ -220,14 +220,14 @@ class Drugcell(nn.Module):
         # define forward function for genotype dcell #############################################
         term_gene_out_map = {}
 
-        for term, _ in self.term_direct_gene_map.items():
+        for term in self.term_direct_gene_map.keys():
             term_gene_out_map[term] = self._modules[term + "_direct_gene_layer"](
                 gene_input
             )
 
         term_nn_out_map = {}
 
-        for _, layer in enumerate(self.term_layer_list):
+        for layer in self.term_layer_list:
 
             for term in layer:
 
