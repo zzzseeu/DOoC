@@ -145,8 +145,8 @@ class _DrugcellAdamr2MutSmis(_DrugcellAdamr2Base):
 Mutations(Individual Sample) and Smiles Interaction
 
 MutSmiReg
-MutSmis{Pair/List}
-MutsSmi{Pair/List}
+MutSmis{Pair/List}wiseRank
+MutsSmi{Pair/List}wiseRank
 """
 
 
@@ -154,7 +154,7 @@ class MutSmiReg(_DrugcellAdamr2MutSmi):
     pass
 
 
-class MutSmisPairwise(_DrugcellAdamr2MutSmis):
+class MutSmisPairwiseRank(_DrugcellAdamr2MutSmis):
     def __call__(
         self,
         muts: typing.Sequence[list],
@@ -163,6 +163,10 @@ class MutSmisPairwise(_DrugcellAdamr2MutSmis):
         seq_len: int = 200
     ) -> typing.Tuple[torch.Tensor]:
         mut_x, smi_tgt, rout = super().__call__(muts, lsmiles, lvalues, seq_len)
-        out = torch.zeros(rout.size(0), dtype=torch.long, device=self.device)
-        out[(rout[:, 0] - rout[:, 1]) > 0.0] = 1
+        out = torch.zeros(rout.size(0), dtype=rout.dtype, device=self.device)
+        out[(rout[:, 0] - rout[:, 1]) > 0.0] = 1.0
         return mut_x, smi_tgt, out
+
+
+class MutSmisListwiseRank(_DrugcellAdamr2MutSmis):
+    pass

@@ -75,8 +75,8 @@ def test_MutSmiReg(smi_tkz):
     assert out.shape == (2, 1)
 
 
-def test_MutSmisPairwise(smi_tkz):
-    ds = datasets.MutSmisPairwise(smi_tkz)
+def test_MutSmisPairwiseRank(smi_tkz):
+    ds = datasets.MutSmisPairwiseRank(smi_tkz)
     lsmis = [["CC[N+]CCBr", "Cc1ccc1"], ["CCC[N+]CCBr", "CCc1ccc1"]]
     lvals = [[0.88, 0.89], [0.82, 0.9]]
     muts = [[random.choice([0, 1]) for _ in range(52)],
@@ -87,3 +87,17 @@ def test_MutSmisPairwise(smi_tkz):
     assert smi_tgt.shape == (2, 2, 200)
     assert mut_x.shape == (2, 52)
     assert out.shape == (2,)
+
+
+def test_MutSmisListwiseRank(smi_tkz):
+    ds = datasets.MutSmisListwiseRank(smi_tkz)
+    lsmis = [["CC[N+]CCBr", "Cc1ccc1", "Cc1ccc1"], ["CCC[N+]CCBr", "CCc1ccc1", "Cc1ccc1"]]
+    lvals = [[0.88, 0.89, 0.89], [0.82, 0.9, 0.9]]
+    muts = [[random.choice([0, 1]) for _ in range(52)],
+            [random.choice([0, 1]) for _ in range(52)]]
+    with pytest.raises(AssertionError):
+        ds(muts, lsmis, lvals[:1])
+    mut_x, smi_tgt, out = ds(muts, lsmis, lvals)
+    assert smi_tgt.shape == (2, 3, 200)
+    assert mut_x.shape == (2, 52)
+    assert out.shape == (2, 3)
