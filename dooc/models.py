@@ -1,44 +1,40 @@
 import torch
-from moltx import nets as mnets
 from moltx import models as mmodels
 from dooc import nets as dnets
-from dooc.nets import heads, drugcell
+from dooc.nets import heads
 
 
 """
 Mutations(Individual Sample) and Smiles Interaction
 
 MutSmiReg
-MutSmisRank
-MutsSmiRank
+MutSmis{Pair/List}
+MutsSmi{Pair/List}
 """
 
 
-class MutSmiReg(dnets.DrugcellAdamr2MutSmiXattn):
+class MutSmiReg(dnets.DrugcellAdamrMutSmiXattn):
 
-    def __init__(self, mut_conf: drugcell.DrugcellConfig = dnets.Drugcell.DEFAULT_CONFIG, smi_conf: mnets.AbsPosEncoderCausalConfig = mmodels.AdaMR2.CONFIG_LARGE) -> None:
-        super().__init__(mut_conf, smi_conf)
+    def __init__(self) -> None:
+        super().__init__(mut_conf=dnets.Drugcell.DEFAULT_CONFIG, smi_conf=mmodels.AdaMR.CONFIG_BASE)
         self.reg = heads.RegHead(self.smi_conf.d_model)
 
-    def forward(
-            self, mut_x: torch.Tensor, smi_tgt: torch.Tensor) -> torch.Tensor:
-        return self.reg(super().forward(mut_x, smi_tgt))  # [b, 1]
+    def forward(self, *args, **kwargs) -> torch.Tensor:
+        return self.reg(super().forward(*args, **kwargs))  # [b, 1]
 
 
-class MutSmisRank(dnets.DrugcellAdamr2MutSmisXattn):
+class MutSmisPairwise(dnets.DrugcellAdamrMutSmisXattn):
 
-    def __init__(self, mut_conf: drugcell.DrugcellConfig = dnets.Drugcell.DEFAULT_CONFIG, smi_conf: mnets.AbsPosEncoderCausalConfig = mmodels.AdaMR2.CONFIG_LARGE) -> None:
-        super().__init__(mut_conf, smi_conf)
-        self.reg = heads.RegHead(self.smi_conf.d_model)
+    def __init__(self) -> None:
+        super().__init__(mut_conf=dnets.Drugcell.DEFAULT_CONFIG, smi_conf=mmodels.AdaMR.CONFIG_BASE)
+        self.pairwise_rank = heads.RegHead(self.smi_conf.d_model)
 
-    def forward(
-            self, mut_x: torch.Tensor, smi_tgt: torch.Tensor) -> torch.Tensor:
-        return self.reg(super().forward(mut_x, smi_tgt)).squeeze(-1)  # [b, n]
+    def forward(self, *args, **kwargs) -> torch.Tensor:
+        return self.pairwise_rank(super().forward(*args, **kwargs))  # [b, 2]
 
-    def forward_cmp(self, mut_x: torch.Tensor, smi_tgt: torch.Tensor) -> float:
+    def forward_cmp(self, *args, **kwargs) -> float:
         """
         for infer, no batch dim
         """
-        assert mut_x.dim() == 1 and smi_tgt.dim() == 2
-        out = self.forward(mut_x, smi_tgt)  # [2]
-        return (out[0] - out[1]).item()
+        out = self.forward(*args, **kwargs)
+        return (out[1] - out[0]).item()

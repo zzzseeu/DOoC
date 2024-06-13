@@ -150,7 +150,7 @@ MutsSmi{Pair/List}wiseRank
 """
 
 
-class MutSmiReg(_DrugcellAdamr2MutSmi):
+class MutSmiReg(_DrugcellAdamrMutSmi):
     pass
 
 
