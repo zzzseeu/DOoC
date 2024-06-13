@@ -27,7 +27,7 @@ def test_MutSmisRank(smi_tkz):
     assert len(out) == 3
     assert out[1] == "CC[N+](C)(C)Cc1ccccc1Br"
 
-    model = models.MutSmisPairwise()
+    model = models.MutSmisRank()
     pipeline = pipelines.MutSmisRank(smi_tokenizer=smi_tkz, model=model)
     out = pipeline(mutation, smiles)
     assert isinstance(out, list)

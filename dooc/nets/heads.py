@@ -15,22 +15,3 @@ class RegHead(nn.Module):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.mlp(x)
-
-
-class PairwiseRankHead(nn.Module):
-    def __init__(self, d_features: int):
-        super().__init__()
-        self.mlp = nn.Sequential(
-            nn.Flatten(-2),
-            nn.Linear(d_features * 2, d_features),
-            nn.ReLU(),
-            nn.Dropout(0.1),
-            nn.Linear(d_features, 2)
-        )
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """
-        x: [b, 2, d_features]
-        """
-        assert x.size(-2) == 2
-        return self.mlp(x)  # [b, 2] 1: x1 > x2, 0: x1 <= x2

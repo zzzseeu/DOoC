@@ -9,8 +9,8 @@ from dooc.nets import heads, drugcell
 Mutations(Individual Sample) and Smiles Interaction
 
 MutSmiReg
-MutSmis{Pair/List}
-MutsSmi{Pair/List}
+MutSmisRank
+MutsSmiRank
 """
 
 
@@ -20,22 +20,25 @@ class MutSmiReg(dnets.DrugcellAdamr2MutSmiXattn):
         super().__init__(mut_conf, smi_conf)
         self.reg = heads.RegHead(self.smi_conf.d_model)
 
-    def forward(self, *args, **kwargs) -> torch.Tensor:
-        return self.reg(super().forward(*args, **kwargs))  # [b, 1]
+    def forward(
+            self, mut_x: torch.Tensor, smi_tgt: torch.Tensor) -> torch.Tensor:
+        return self.reg(super().forward(mut_x, smi_tgt))  # [b, 1]
 
 
-class MutSmisPairwise(dnets.DrugcellAdamr2MutSmisXattn):
+class MutSmisRank(dnets.DrugcellAdamr2MutSmisXattn):
 
     def __init__(self, mut_conf: drugcell.DrugcellConfig = dnets.Drugcell.DEFAULT_CONFIG, smi_conf: mnets.AbsPosEncoderCausalConfig = mmodels.AdaMR2.CONFIG_LARGE) -> None:
         super().__init__(mut_conf, smi_conf)
-        self.pairwise_rank = heads.PairwiseRankHead(self.smi_conf.d_model)
+        self.reg = heads.RegHead(self.smi_conf.d_model)
 
-    def forward(self, *args, **kwargs) -> torch.Tensor:
-        return self.pairwise_rank(super().forward(*args, **kwargs))  # [b, 2]
+    def forward(
+            self, mut_x: torch.Tensor, smi_tgt: torch.Tensor) -> torch.Tensor:
+        return self.reg(super().forward(mut_x, smi_tgt)).squeeze(-1)  # [b, n]
 
-    def forward_cmp(self, *args, **kwargs) -> float:
+    def forward_cmp(self, mut_x: torch.Tensor, smi_tgt: torch.Tensor) -> float:
         """
         for infer, no batch dim
         """
-        out = self.forward(*args, **kwargs)
-        return (out[1] - out[0]).item()
+        assert mut_x.dim() == 1 and smi_tgt.dim() == 2
+        out = self.forward(mut_x, smi_tgt)  # [2]
+        return (out[0] - out[1]).item()
