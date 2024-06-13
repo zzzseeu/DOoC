@@ -14,15 +14,27 @@ MutsSmiRank
 """
 
 
-class MutSmiReg(dnets.DrugcellAdamr2MutSmiXattn):
+# class MutSmiReg(dnets.DrugcellAdamr2MutSmiXattn):
 
-    def __init__(self, mut_conf: drugcell.DrugcellConfig = dnets.Drugcell.DEFAULT_CONFIG, smi_conf: mnets.AbsPosEncoderCausalConfig = mmodels.AdaMR2.CONFIG_LARGE) -> None:
+#     def __init__(self, mut_conf: drugcell.DrugcellConfig = dnets.Drugcell.DEFAULT_CONFIG, smi_conf: mnets.AbsPosEncoderCausalConfig = mmodels.AdaMR2.CONFIG_LARGE) -> None:
+#         super().__init__(mut_conf, smi_conf)
+#         self.reg = heads.RegHead(self.smi_conf.d_model)
+
+#     def forward(
+#             self, mut_x: torch.Tensor, smi_tgt: torch.Tensor) -> torch.Tensor:
+#         return self.reg(super().forward(mut_x, smi_tgt))  # [b, 1]
+
+
+class MutSmiReg(dnets.DrugcellAdamrMutSmiXattn):
+
+    def __init__(self, mut_conf: drugcell.DrugcellConfig = dnets.Drugcell.DEFAULT_CONFIG, smi_conf: mnets.AbsPosEncoderCausalConfig = mmodels.AdaMR.CONFIG_BASE) -> None:
         super().__init__(mut_conf, smi_conf)
         self.reg = heads.RegHead(self.smi_conf.d_model)
 
     def forward(
-            self, mut_x: torch.Tensor, smi_tgt: torch.Tensor) -> torch.Tensor:
-        return self.reg(super().forward(mut_x, smi_tgt))  # [b, 1]
+            self, mut_x: torch.Tensor, smi_src: torch.Tensor, smi_tgt: torch.Tensor) -> torch.Tensor:
+        return self.reg(super().forward(mut_x, smi_src, smi_tgt))  # [b, 1]
+
 
 
 class MutSmisRank(dnets.DrugcellAdamr2MutSmisXattn):
