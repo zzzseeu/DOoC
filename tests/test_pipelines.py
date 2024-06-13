@@ -12,6 +12,12 @@ def test_MutSmiReg(smi_tkz):
     out = pipeline(mutation, smiles)
     assert isinstance(out, float)
 
+    model = models.MutSmiAddReg()
+    pipeline = pipelines.MutSmiReg(smi_tokenizer=smi_tkz,
+                   model=model)
+    out = pipeline(mutation, smiles)
+    assert isinstance(out, float)
+
 
 def test_MutSmisRank(smi_tkz):
     mutation = [random.choice([1, 0]) for _ in range(3008)]
