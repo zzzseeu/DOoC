@@ -27,7 +27,7 @@ MutsSmiRank
 
 class MutSmiReg(dnets.DrugcellAdamrMutSmiXattn):
 
-    def __init__(self, mut_conf: drugcell.DrugcellConfig = dnets.Drugcell.DEFAULT_CONFIG, smi_conf: mnets.AbsPosEncoderCausalConfig = mmodels.AdaMR.CONFIG_BASE) -> None:
+    def __init__(self, mut_conf: drugcell.DrugcellConfig = dnets.Drugcell.DEFAULT_CONFIG, smi_conf: mnets.AbsPosEncoderDecoderConfig = mmodels.AdaMR.CONFIG_BASE) -> None:
         super().__init__(mut_conf, smi_conf)
         self.reg = heads.RegHead(self.smi_conf.d_model)
 

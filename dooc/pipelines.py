@@ -27,10 +27,16 @@ class _MutSmiBase:
 
 class _MutSmi(_MutSmiBase):
 
+    # def _model_args(self, mut: typing.Sequence[int], smi: str) -> typing.Tuple[torch.Tensor]:
+    #     mut_x = torch.tensor(mut, device=self.device)
+    #     smi_tgt = self._tokens2tensor(self.smi_tokenizer(self.smi_tokenizer.BOS + smi + self.smi_tokenizer.EOS))
+    #     return mut_x, smi_tgt
+
     def _model_args(self, mut: typing.Sequence[int], smi: str) -> typing.Tuple[torch.Tensor]:
         mut_x = torch.tensor(mut, device=self.device)
+        smi_src = self._tokens2tensor(self.smi_tokenizer(smi))
         smi_tgt = self._tokens2tensor(self.smi_tokenizer(self.smi_tokenizer.BOS + smi + self.smi_tokenizer.EOS))
-        return mut_x, smi_tgt
+        return mut_x, smi_src, smi_tgt
 
     def reg(self, mut: typing.Sequence[int], smi: str) -> float:
         return self.model(*self._model_args(mut, smi)).item()
