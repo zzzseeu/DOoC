@@ -100,7 +100,7 @@ MutsSmiRank
 class MutSmiReg(_MutSmi, _MutSmiReg):
     pass
 
-class MutSmiAddReg(_MutSmi, _MutSmiReg):
+class MutSmiAddReg(MutSmiReg):
     pass
 
 
