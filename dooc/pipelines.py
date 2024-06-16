@@ -11,7 +11,7 @@ class _MutSmiBase:
         self.device = device
         model = model.to(device)
         model.eval()
-        model.requires_grad_(False)
+        model.requires_grad_(requires_grad=True)
         self.model = model
 
     def _tokens2tensor(self, tokens: typing.Sequence[int], size: int = None) -> torch.Tensor:
