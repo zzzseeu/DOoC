@@ -103,3 +103,7 @@ class MutSmiReg(_MutSmi, _MutSmiReg):
 
 class MutSmisRank(_MutSmis, _MutSmisRank):
     pass
+
+
+class MutSmisPairwise(MutSmisRank):
+    pass
