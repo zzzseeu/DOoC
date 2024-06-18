@@ -85,6 +85,15 @@ class _MutSmiReg:
 class _MutSmisRank:
 
     def __call__(self, mut: typing.Sequence[int], smis: typing.Sequence[str]) -> typing.Sequence[str]:
+        """
+        The output smiles queue is sorted in ascending order. The higher the ranking, the better the effect.
+
+        Therefore, when using the dataset, it is necessary to ensure the consistency of the value and the ranking,
+        that is, the smaller the value, the higher the ranking.
+
+        For example, IC50 can be used directly; while for indicators such as inhibition rate,
+        they need to be converted before use.
+        """
         return sorted(smis, key=cmp_to_key(self.cmp_smis_func(mut)))
 
 
