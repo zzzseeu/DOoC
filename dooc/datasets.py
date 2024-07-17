@@ -4,7 +4,7 @@ import torch
 from moltx import tokenizers, datasets
 
 
-class _SmiMutBase:
+class _SmiBase:
     def __init__(self, smi_tokenizer: tokenizers.MoltxTokenizer, device: torch.device = torch.device("cpu")) -> None:
         self.smi_ds = datasets.Base(smi_tokenizer, device)
         self.device = device
@@ -22,7 +22,7 @@ Mutations(Individual Sample) and Smiles Interaction
 """
 
 
-class _DrugcellAdamrBase(_SmiMutBase):
+class _DrugcellAdamrBase(_SmiBase):
     """Base datasets, convert smiles and genes to torch.Tensor."""
 
     def __init__(
@@ -141,6 +141,87 @@ class _DrugcellAdamr2MutSmis(_DrugcellAdamr2Base):
         return mut_x, smi_tgt, out
 
 
+class _MultiOmicsAdamr2Base(_SmiBase):
+    """Base datasets, convert smiles and multi omics to torch.Tensor."""
+
+    def __init__(
+        self,
+        smi_tokenizer: tokenizers.MoltxTokenizer,
+        device: torch.device = torch.device("cpu")
+    ) -> None:
+        super().__init__(smi_tokenizer, device)
+        self.smi_tokenizer = smi_tokenizer
+
+    def _smi_tokens(
+        self,
+        smiles: typing.Sequence[str],
+        seq_len: int = 200,
+    ) -> torch.Tensor:
+        tgt = self._smi_tokenize(
+            [f"{self.smi_tokenizer.BOS}{smi}{self.smi_tokenizer.EOS}" for smi in smiles], seq_len)
+        return tgt
+
+    def _multi_omics_tokens(self, muts: typing.Sequence[list], rnas: typing.Sequence[list], pathways: typing.Sequence[list]) -> torch.Tensor:
+        mut_x = torch.tensor(muts, device=self.device)
+        rna_x = torch.tensor(rnas, device=self.device)
+        pathway_x = torch.tensor(pathways, device=self.device)
+        return mut_x, rna_x, pathway_x
+
+    def _out(self, values: typing.Sequence[float]) -> torch.Tensor:
+        return torch.tensor(values, device=self.device)
+
+
+class _MultiOmicsAdamr2MutSmi(_MultiOmicsAdamr2Base):
+    def __call__(
+        self,
+        muts: typing.Sequence[list],
+        rnas: typing.Sequence[list],
+        pathways: typing.Sequence[list],
+        smis: typing.Sequence[str],
+        vals: typing.Sequence[float],
+        seq_len: int = 200
+    ) -> typing.Tuple[torch.Tensor]:
+        assert (
+            len(smis) == len(vals) and len(muts) == len(vals) and
+            len(rnas) == len(vals) and len(pathways) == len(vals)
+        )
+        mut_x, rna_x, pathway_x = self._multi_omics_tokens(muts, rnas, pathways)
+        smi_tgt = self._smi_tokens(smis, seq_len)
+        out = self._out(vals).unsqueeze(-1)
+        return mut_x, rna_x, pathway_x, smi_tgt, out
+
+
+class _MultiOmicsAdamr2MutSmis(_MultiOmicsAdamr2Base):
+    def __call__(
+        self,
+        muts: typing.Sequence[list],
+        rnas: typing.Sequence[list],
+        pathways: typing.Sequence[list],
+        lsmis: typing.Sequence[typing.Sequence[str]],
+        lvals: typing.Sequence[typing.Sequence[float]],
+        seq_len: int = 200
+    ) -> typing.Tuple[torch.Tensor]:
+        """
+        muts: [mut1, mut2, ...] mut1: [gene1, gene2, ...]
+        rnas: [rna1, rna2, ...] rna1: [gene1, gene2, ...]
+        pathways: [pathway1, pathway2, ...] pathway1: [gene1, gene2, ...]
+        bsmiles: [[smi11, smi12], [smi21, smi22], ...]
+        bvlaues: [[val11, val12], [val21, val22], ...]
+        """
+        assert (
+            len(lsmis) == len(lvals) and len(muts) == len(lvals) and
+            len(rnas) == len(lvals) and len(pathways) == len(lvals)
+        )
+        mut_x, rna_x, pathway_x = self._multi_omics_tokens(muts, rnas, pathways)
+        batchlen = len(lsmis)
+        listlen = len(lsmis[0])
+        smiles = [smi for bsmi in lsmis for smi in bsmi]
+        smi_tgt = self._smi_tokens(smiles, seq_len)
+        smi_tgt = smi_tgt.reshape(batchlen, listlen, smi_tgt.size(-1))
+        out = self._out(lvals)
+        return mut_x, rna_x, pathway_x, smi_tgt, out
+
+
 """
 Mutations(Individual Sample) and Smiles Interaction
 
@@ -170,3 +251,27 @@ class MutSmisPairwiseRank(_DrugcellAdamr2MutSmis):
 
 class MutSmisListwiseRank(_DrugcellAdamr2MutSmis):
     pass
+
+
+class MultiOmicsSmisListwiseRank(_MultiOmicsAdamr2MutSmis):
+    pass
+
+
+class MultiOmicsSmiReg(_MultiOmicsAdamr2MutSmi):
+    pass
+
+
+class MultiOmicsSmisPairwiseRank(_MultiOmicsAdamr2MutSmis):
+    def __call__(
+        self,
+        muts: typing.Sequence[list],
+        rnas: typing.Sequence[list],
+        pathways: typing.Sequence[list],
+        lsmiles: typing.Sequence[typing.Sequence[str]],
+        lvalues: typing.Sequence[typing.Sequence[float]],
+        seq_len: int = 200
+    ) -> typing.Tuple[torch.Tensor]:
+        mut_x, rna_x, pathway_x, smi_tgt, rout = super().__call__(muts, rnas, pathways, lsmiles, lvalues, seq_len)
+        out = torch.zeros(rout.size(0), dtype=rout.dtype, device=self.device)
+        out[(rout[:, 0] - rout[:, 1]) > 0.0] = 1.0
+        return mut_x, rna_x, pathway_x, smi_tgt, out
