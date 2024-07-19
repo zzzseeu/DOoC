@@ -97,39 +97,6 @@ class _MutSmisRank:
         return sorted(smis, key=cmp_to_key(self.cmp_smis_func(mut)))
 
 
-class _MultiOmicsSmi(_SmiBase):
-
-    def _model_args(
-        self, mut: typing.Sequence[int], rna: typing.Sequence[int], pathway: typing.Sequence[int], smi: str
-    ) -> typing.Tuple[torch.Tensor]:
-        mut_x = torch.tensor(mut, device=self.device)
-        rna_x = torch.tensor(rna, device=self.device)
-        pathway_x = torch.tensor(pathway, device=self.device)
-        smi_tgt = self._tokens2tensor(self.smi_tokenizer(self.smi_tokenizer.BOS + smi + self.smi_tokenizer.EOS))
-        return mut_x, rna_x, pathway_x, smi_tgt
-
-    def reg(
-        self, mut: typing.Sequence[int], rna: typing.Sequence[int], pathway: typing.Sequence[int], smi: str
-    ) -> float:
-        return self.model(*self._model_args(mut, rna, pathway, smi)).item()
-
-    def cmp_smis_func(
-        self, mut: typing.Sequence[int], rna: typing.Sequence[int], pathway: typing.Sequence[int]
-    ) -> typing.Callable:
-        cmped = {}
-
-        def cmp(smi1, smi2):
-            query = '-'.join([smi1, smi2])
-            if query in cmped:
-                return cmped[query]
-            out1 = self.reg(mut, rna, pathway, smi1)
-            out2 = self.reg(mut, rna, pathway, smi2)
-            out = out1 - out2
-            cmped[query] = out
-            return out
-        return cmp
-
-
 class _MultiOmicsSmis(_SmiBase):
 
     def _smi_args(
@@ -158,14 +125,6 @@ class _MultiOmicsSmis(_SmiBase):
             cmped[query] = out
             return out
         return cmp
-
-
-class _MultiOmicsSmiReg:
-
-    def __call__(
-        self, mut: typing.Sequence[int], rna: typing.Sequence[int], pathway: typing.Sequence[int], smi: str
-    ) -> typing.Dict:
-        return self.reg(mut, rna, pathway, smi)
 
 
 class _MultiOmicsSmisRank:
@@ -199,10 +158,6 @@ class MutSmiReg(_MutSmi, _MutSmiReg):
 
 
 class MutSmisRank(_MutSmis, _MutSmisRank):
-    pass
-
-
-class MultiOmicsSmiReg(_MultiOmicsSmi, _MultiOmicsSmiReg):
     pass
 
 

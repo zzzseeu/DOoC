@@ -32,24 +32,6 @@ def test_DrugcellAdamr2MutSmi(smi_tkz):
     assert out.shape == (2, 1)
 
 
-def test_MultiOmicsAdamr2MutSmi(smi_tkz):
-    ds = datasets._MultiOmicsAdamr2MutSmi(smi_tkz)
-    smis = ["CC[N+]CCBr", "Cc1ccc1"]
-    vals = [0.88, 0.89]
-    muts = [[random.choice([0, 1]) for _ in range(52)],
-            [random.choice([0, 1]) for _ in range(52)]]
-    rnas = [[random.random() for _ in range(20)] for _ in range(2)]
-    pathways = [[random.random() for _ in range(30)] for _ in range(2)]
-    with pytest.raises(AssertionError):
-        ds(muts, rnas, pathways, smis, vals[:1])
-    mut_x, rna_x, pathway_x, smi_tgt, out = ds(muts, rnas, pathways, smis, vals)
-    assert smi_tgt.shape == (2, 200)
-    assert mut_x.shape == (2, 52)
-    assert rna_x.shape == (2, 20)
-    assert pathway_x.shape == (2, 30)
-    assert out.shape == (2, 1)
-
-
 def test_DrugcellAdamrMutSmis(smi_tkz):
     ds = datasets._DrugcellAdamrMutSmis(smi_tkz)
     lsmis = [["CC[N+]CCBr", "Cc1ccc1"], ["CCC[N+]CCBr", "CCc1ccc1"]]
@@ -79,8 +61,8 @@ def test_DrugcellAdamr2MutSmis(smi_tkz):
     assert out.shape == (2, 2)
 
 
-def test_MultiOmicsAdamr2MutSmis(smi_tkz):
-    ds = datasets._MultiOmicsAdamr2MutSmis(smi_tkz)
+def test_PrmoAdamr2MultiOmicsSmis(smi_tkz):
+    ds = datasets._PrmoAdamr2MultiOmicsSmis(smi_tkz)
     lsmis = [["CC[N+]CCBr", "Cc1ccc1"], ["CCC[N+]CCBr", "CCc1ccc1"]]
     lvals = [[0.88, 0.89], [0.82, 0.9]]
     muts = [[random.choice([0, 1]) for _ in range(52)],
@@ -108,24 +90,6 @@ def test_MutSmiReg(smi_tkz):
     mut_x, smi_tgt, out = ds(muts, smis, vals)
     assert smi_tgt.shape == (2, 200)
     assert mut_x.shape == (2, 52)
-    assert out.shape == (2, 1)
-
-
-def test_MultiOmicsSmiReg(smi_tkz):
-    ds = datasets.MultiOmicsSmiReg(smi_tkz)
-    smis = ["CC[N+]CCBr", "Cc1ccc1"]
-    vals = [0.88, 0.89]
-    muts = [[random.choice([0, 1]) for _ in range(52)],
-            [random.choice([0, 1]) for _ in range(52)]]
-    rnas = [[random.random() for _ in range(20)] for _ in range(2)]
-    pathways = [[random.random() for _ in range(30)] for _ in range(2)]
-    with pytest.raises(AssertionError):
-        ds(muts, rnas, pathways, smis, vals[:1])
-    mut_x, rna_x, pathway_x, smi_tgt, out = ds(muts, rnas, pathways, smis, vals)
-    assert smi_tgt.shape == (2, 200)
-    assert mut_x.shape == (2, 52)
-    assert rna_x.shape == (2, 20)
-    assert pathway_x.shape == (2, 30)
     assert out.shape == (2, 1)
 
 

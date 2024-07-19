@@ -2,7 +2,7 @@ import torch
 from moltx import nets as mnets
 from moltx import models as mmodels
 from dooc import nets as dnets
-from dooc.nets import heads, drugcell, multiomics
+from dooc.nets import heads, drugcell, prmo
 
 
 """
@@ -44,20 +44,9 @@ class MutSmisRank(dnets.DrugcellAdamr2MutSmisXattn):
         return (out[0] - out[1]).item()
 
 
-class MultiOmicsSmiReg(dnets.MultiOmicsAdamr2MutSmiXattn):
+class MultiOmicsSmisRank(dnets.PrmoAdamr2MultiOmicsSmisXattn):
 
-    def __init__(self, multi_omics_conf: multiomics.MultiOmicsConfig = dnets.MultiOmicsEncoder.DEFAULT_CONFIG, smi_conf: mnets.AbsPosEncoderCausalConfig = mmodels.AdaMR2.CONFIG_LARGE) -> None:
-        super().__init__(multi_omics_conf, smi_conf)
-        self.reg = heads.RegHead(self.smi_conf.d_model)
-
-    def forward(
-            self, mut_x: torch.Tensor, rna_x: torch.Tensor, pathway_x: torch.Tensor, smi_tgt: torch.Tensor) -> torch.Tensor:
-        return self.reg(super().forward(mut_x, rna_x, pathway_x, smi_tgt))  # [b, 1]
-
-
-class MultiOmicsSmisRank(dnets.MultiOmicsAdamr2MutSmisXattn):
-
-    def __init__(self, multi_omics_conf: multiomics.MultiOmicsConfig = dnets.MultiOmicsEncoder.DEFAULT_CONFIG, smi_conf: mnets.AbsPosEncoderCausalConfig = mmodels.AdaMR2.CONFIG_LARGE) -> None:
+    def __init__(self, multi_omics_conf: prmo.PrmoConfig = dnets.PrmoEncoder.DEFAULT_CONFIG, smi_conf: mnets.AbsPosEncoderCausalConfig = mmodels.AdaMR2.CONFIG_LARGE) -> None:
         super().__init__(multi_omics_conf, smi_conf)
         self.reg = heads.RegHead(self.smi_conf.d_model)
 

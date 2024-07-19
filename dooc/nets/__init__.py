@@ -2,7 +2,7 @@ import torch
 from torch import nn
 from moltx.models import AdaMR, AdaMR2
 from dooc.nets.drugcell import Drugcell
-from dooc.nets.multiomics import MultiOmicsEncoder
+from dooc.nets.prmo import PrmoEncoder
 
 
 """
@@ -212,14 +212,14 @@ class DrugcellAdamr2MutSmisXattn(DrugcellAdamr2MutSmisAdd):
         return self.cross_attn(smi_out, mut_out)  # [b, n, dmodel]
 
 
-class _MultiOmicsAdamr2(nn.Module):
+class _PrmoAdamr2(nn.Module):
 
     def __init__(self, multi_omics_conf, smi_conf) -> None:
         super().__init__()
         self.multi_omics_conf = multi_omics_conf
         self.smi_conf = smi_conf
 
-        self.multi_omics_encoder = MultiOmicsEncoder(multi_omics_conf)
+        self.multi_omics_encoder = PrmoEncoder(multi_omics_conf)
         self.smi_encoder = AdaMR2(smi_conf)
 
     def load_ckpt(self, *ckpt_files: str) -> None:
@@ -234,28 +234,7 @@ class _MultiOmicsAdamr2(nn.Module):
         self.multi_omics_encoder.load_pretrained_ckpt(mut_ckpt, freeze_mut)
 
 
-class MultiOmicsAdamr2MutSmiXattn(_MultiOmicsAdamr2):
-    def __init__(self, multi_omics_conf, smi_conf, nhead: int = 2, num_layers: int = 2) -> None:
-        super().__init__(multi_omics_conf, smi_conf)
-        d_model = self.smi_conf.d_model
-        layer = nn.TransformerDecoderLayer(d_model, nhead, batch_first=True)
-        self.cross_attn = nn.TransformerDecoder(layer, num_layers)
-
-    def forward(
-        self, mut_x: torch.Tensor, rna_x: torch.Tensor, pathway_x: torch.Tensor, smi_tgt: torch.Tensor
-    ) -> torch.Tensor:
-        """
-        mut_x: [b, mut_seqlen]
-        rna_x: [b, rna_seqlen]
-        pathway_x: [b, pathway_seqlen]
-        smi_tgt: [b, smi_seqlen]
-        """
-        multi_omics_out = self.multi_omics_encoder(mut_x, rna_x, pathway_x).unsqueeze(-2)  # [b, 1, dmodel]
-        smi_out = self.smi_encoder.forward_feature(smi_tgt).unsqueeze(-2)  # [b, 1, dmodel]
-        return self.cross_attn(smi_out, multi_omics_out).squeeze(-2)  # [b, dmodel]
-
-
-class MultiOmicsAdamr2MutSmisXattn(_MultiOmicsAdamr2):
+class PrmoAdamr2MultiOmicsSmisXattn(_PrmoAdamr2):
     def __init__(self, multi_omics_conf, smi_conf, nhead: int = 2, num_layers: int = 2) -> None:
         super().__init__(multi_omics_conf, smi_conf)
         d_model = smi_conf.d_model

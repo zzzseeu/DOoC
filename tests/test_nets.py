@@ -17,8 +17,8 @@ def drugcell_conf():
     return nets.Drugcell.DEFAULT_CONFIG
 
 @pytest.fixture
-def multiomics_conf():
-    return nets.MultiOmicsEncoder.DEFAULT_CONFIG
+def prmo_conf():
+    return nets.PrmoEncoder.DEFAULT_CONFIG
 
 @pytest.fixture
 def drugcell_adamr_mut_smi_ds(smi_tkz):
@@ -39,17 +39,6 @@ def drugcell_adamr2_mut_smi_ds(smi_tkz):
     return ds(muts, smis, vals)
 
 @pytest.fixture
-def multiomics_adamr2_mut_smi_ds(smi_tkz):
-    smis = ["CC[N+]CCBr", "Cc1ccc1"]
-    vals = [0.88, 0.89]
-    muts = [[random.choice([0, 1]) for _ in range(3008)],
-            [random.choice([0, 1]) for _ in range(3008)]]
-    rnas = [[random.random() for _ in range(5537)] for _ in range(2)]
-    pathways = [[random.random() for _ in range(3793)] for _ in range(2)]
-    ds = datasets._MultiOmicsAdamr2MutSmi(smi_tkz)
-    return ds(muts, rnas, pathways, smis, vals)
-
-@pytest.fixture
 def drugcell_adamr_mut_smis_ds(smi_tkz):
     lsmis = [["CC[N+]CCBr", "Cc1ccc1"], ["CCC[N+]CCBr", "CCc1ccc1"]]
     lvals = [[0.88, 0.89], [0.82, 0.9]]
@@ -68,14 +57,14 @@ def drugcell_adamr2_mut_smis_ds(smi_tkz):
     return ds(muts, lsmis, lvals)
 
 @pytest.fixture
-def multiomics_adamr2_mut_smis_ds(smi_tkz):
+def prmo_adamr2_mut_smis_ds(smi_tkz):
     lsmis = [["CC[N+]CCBr", "Cc1ccc1"], ["CCC[N+]CCBr", "CCc1ccc1"]]
     lvals = [[0.88, 0.89], [0.82, 0.9]]
     muts = [[random.choice([0, 1]) for _ in range(3008)],
             [random.choice([0, 1]) for _ in range(3008)]]
     rnas = [[random.random() for _ in range(5537)] for _ in range(2)]
     pathways = [[random.random() for _ in range(3793)] for _ in range(2)]
-    ds = datasets._MultiOmicsAdamr2MutSmis(smi_tkz)
+    ds = datasets._PrmoAdamr2MultiOmicsSmis(smi_tkz)
     return ds(muts, rnas, pathways, lsmis, lvals)
 
 def test_DrugcellAdamrMutSmi(adamr_conf, drugcell_conf, drugcell_adamr_mut_smi_ds):
@@ -102,15 +91,6 @@ def test_DrugcellAdamr2MutSmi(adamr2_conf, drugcell_conf, drugcell_adamr2_mut_sm
 
     model = nets.DrugcellAdamr2MutSmiXattn(drugcell_conf, adamr2_conf)
     out = model(*drugcell_adamr2_mut_smi_ds[:-1])
-    assert out.dim() == 2
-    assert out.size(0) == label.size(0)
-
-
-def test_MultiOmicsAdamr2MutSmi(adamr2_conf, multiomics_conf, multiomics_adamr2_mut_smi_ds):
-    label = multiomics_adamr2_mut_smi_ds[-1]
-
-    model = nets.MultiOmicsAdamr2MutSmiXattn(multiomics_conf, adamr2_conf)
-    out = model(*multiomics_adamr2_mut_smi_ds[:-1])
     assert out.dim() == 2
     assert out.size(0) == label.size(0)
 
@@ -143,10 +123,10 @@ def test_DrugcellAdamr2MutSmis(adamr2_conf, drugcell_conf, drugcell_adamr2_mut_s
     assert out.size(0) == label.size(0) and out.size(1) == label.size(1)
 
 
-def test_MultiOmicsAdamr2MutSmis(adamr2_conf, multiomics_conf, multiomics_adamr2_mut_smis_ds):
-    label = multiomics_adamr2_mut_smis_ds[-1]
+def test_PrmoAdamr2MultiOmicsSmis(adamr2_conf, prmo_conf, prmo_adamr2_mut_smis_ds):
+    label = prmo_adamr2_mut_smis_ds[-1]
 
-    model = nets.MultiOmicsAdamr2MutSmisXattn(multiomics_conf, adamr2_conf)
-    out = model(*multiomics_adamr2_mut_smis_ds[:-1])
+    model = nets.PrmoAdamr2MultiOmicsSmisXattn(prmo_conf, adamr2_conf)
+    out = model(*prmo_adamr2_mut_smis_ds[:-1])
     assert out.dim() == 3
     assert out.size(0) == label.size(0) and out.size(1) == label.size(1)

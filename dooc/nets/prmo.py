@@ -5,7 +5,7 @@ from dooc.nets.drugcell import Drugcell, DrugcellConfig
 
 
 @dataclass
-class MultiOmicsConfig:
+class PrmoConfig:
     d_model: int
     mut_dim: int
     rna_dim: int
@@ -13,9 +13,9 @@ class MultiOmicsConfig:
     drug_cell_conf: DrugcellConfig
 
 
-class MultiOmicsEncoder(nn.Module):
+class PrmoEncoder(nn.Module):
 
-    DEFAULT_CONFIG = MultiOmicsConfig(
+    DEFAULT_CONFIG = PrmoConfig(
         d_model=768,
         mut_dim=3008,
         rna_dim=5537,
@@ -23,7 +23,7 @@ class MultiOmicsEncoder(nn.Module):
         drug_cell_conf=Drugcell.DEFAULT_CONFIG,
     )
 
-    def __init__(self, conf: MultiOmicsConfig = DEFAULT_CONFIG) -> None:
+    def __init__(self, conf: PrmoConfig = DEFAULT_CONFIG) -> None:
         super().__init__()
         self.conf = conf
 
@@ -34,16 +34,9 @@ class MultiOmicsEncoder(nn.Module):
     def forward(
         self, mut_x: torch.Tensor, rna_x: torch.Tensor, pathway_x: torch.Tensor
     ) -> torch.Tensor:
-        dim = mut_x.dim()
-        mut_x = mut_x.unsqueeze(0) if mut_x.dim() == 1 else mut_x
-        rna_x = rna_x.unsqueeze(0) if rna_x.dim() == 1 else rna_x
-        pathway_x = pathway_x.unsqueeze(0) if pathway_x.dim() == 1 else pathway_x
         mut_out = self.mut_encoder(mut_x)
-        x = torch.concat((mut_out, rna_x, pathway_x), dim=1)
-        out = self.out_fc(x)
-        if dim == 1:
-            out = out.squeeze(0)
-        return out
+        x = torch.concat((mut_out, rna_x, pathway_x), dim=-1)
+        return self.out_fc(x)
 
     def load_pretrained_ckpt(self, mut_ckpt: str, freeze_mut: bool = False) -> None:
         self.mut_encoder.load_ckpt(mut_ckpt)
