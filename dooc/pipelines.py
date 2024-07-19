@@ -5,7 +5,7 @@ import torch.nn as nn
 from moltx import tokenizers
 
 
-class _MutSmiBase:
+class _SmiBase:
     def __init__(self, smi_tokenizer: tokenizers.MoltxTokenizer, model: nn.Module, device: torch.device = torch.device("cpu")) -> None:
         self.smi_tokenizer = smi_tokenizer
         self.device = device
@@ -25,7 +25,7 @@ class _MutSmiBase:
         return out.to(self.device)
 
 
-class _MutSmi(_MutSmiBase):
+class _MutSmi(_SmiBase):
 
     def _model_args(self, mut: typing.Sequence[int], smi: str) -> typing.Tuple[torch.Tensor]:
         mut_x = torch.tensor(mut, device=self.device)
@@ -50,7 +50,7 @@ class _MutSmi(_MutSmiBase):
         return cmp
 
 
-class _MutSmis(_MutSmiBase):
+class _MutSmis(_SmiBase):
 
     def _smi_args(
         self, smis: typing.Sequence[str]
@@ -97,6 +97,53 @@ class _MutSmisRank:
         return sorted(smis, key=cmp_to_key(self.cmp_smis_func(mut)))
 
 
+class _MultiOmicsSmis(_SmiBase):
+
+    def _smi_args(
+        self, smis: typing.Sequence[str]
+    ) -> torch.Tensor:
+        smi_tgt = [self.smi_tokenizer(self.smi_tokenizer.BOS + smi + self.smi_tokenizer.EOS) for smi in smis]
+        size_tgt = max(map(len, smi_tgt))
+        smi_tgt = torch.concat([self._tokens2tensor(smi, size_tgt).unsqueeze(0) for smi in smi_tgt])
+        return smi_tgt
+
+    def cmp_smis_func(
+        self, mut: typing.Sequence[int], rna: typing.Sequence[int], pathway: typing.Sequence[int]
+    ) -> typing.Callable:
+        mut_x = torch.tensor(mut, device=self.device)
+        rna_x = torch.tensor(rna, device=self.device)
+        pathway_x = torch.tensor(pathway, device=self.device)
+        cmped = {}
+
+        def cmp(smi1, smi2):
+            smis = [smi1, smi2]
+            query = '-'.join(smis)
+            if query in cmped:
+                return cmped[query]
+            smi_tgt = self._smi_args(smis)
+            out = self.model.forward_cmp(mut_x, rna_x, pathway_x, smi_tgt)
+            cmped[query] = out
+            return out
+        return cmp
+
+
+class _MultiOmicsSmisRank:
+
+    def __call__(
+        self, mut: typing.Sequence[int], rna: typing.Sequence[int], pathway: typing.Sequence[int], smis: typing.Sequence[str]
+    ) -> typing.Sequence[str]:
+        """
+        The output smiles queue is sorted in ascending order. The higher the ranking, the better the effect.
+
+        Therefore, when using the dataset, it is necessary to ensure the consistency of the value and the ranking,
+        that is, the smaller the value, the higher the ranking.
+
+        For example, IC50 can be used directly; while for indicators such as inhibition rate,
+        they need to be converted before use.
+        """
+        return sorted(smis, key=cmp_to_key(self.cmp_smis_func(mut, rna, pathway)))
+
+
 """
 Mutations(Individual Sample) and Smiles Interaction
 
@@ -111,4 +158,8 @@ class MutSmiReg(_MutSmi, _MutSmiReg):
 
 
 class MutSmisRank(_MutSmis, _MutSmisRank):
+    pass
+
+
+class MultiOmicsSmisRank(_MultiOmicsSmis, _MultiOmicsSmisRank):
     pass
